@@ -45,6 +45,11 @@ android {
             pickFirst it
         }
     }
+
+    compileOptions {
+        sourceCompatibility javaVersion
+        targetCompatibility javaVersion
+    }
 }
 
 dependencies {
