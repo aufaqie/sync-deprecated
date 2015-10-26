@@ -246,11 +246,9 @@ public class SyncActivity extends BaseActivity {
         // and remove any settings for a URL other than this...
         if ( Sync.getInstance().getDatabase() != null ) {
           OdkDbHandle db = null;
-          boolean successful = false;
           try {
-            db = Sync.getInstance().getDatabase().openDatabase(appName, true);
+            db = Sync.getInstance().getDatabase().openDatabase(appName);
             Sync.getInstance().getDatabase().deleteAllSyncETagsExceptForServer(appName, db, verifiedUri.toString());
-            successful = true;
           } catch (RemoteException e) {
             WebLogger.getLogger(appName).printStackTrace(e);
             WebLogger.getLogger(appName).e(LOGTAG,
@@ -260,7 +258,7 @@ public class SyncActivity extends BaseActivity {
           } finally {
             if ( db != null ) {
               try {
-                Sync.getInstance().getDatabase().closeTransactionAndDatabase(appName, db, successful);
+                Sync.getInstance().getDatabase().closeDatabase(appName, db);
               } catch (RemoteException e) {
                 WebLogger.getLogger(appName).printStackTrace(e);
                 WebLogger.getLogger(appName).e(LOGTAG,

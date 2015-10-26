@@ -330,18 +330,10 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             Toast.makeText(ConflictResolutionRowActivity.this, "database access failure", Toast.LENGTH_LONG).show();
           } else {
             try {
-              db = Sync.getInstance().getDatabase().openDatabase(mAppName, true);
-              // delete the server conflict row
-              Sync.getInstance().getDatabase().deleteServerConflictRowWithId(mAppName, db,
-                  mTableId, mRowId);
-              // move the local record into the 'new_row' sync state
-              // so it can be physically deleted.
-              Sync.getInstance().getDatabase().updateRowETagAndSyncState(mAppName, db,
-                  mTableId, mRowId, null,
-                  SyncState.new_row.name());
-              // and physically delete it.
-              Sync.getInstance().getDatabase().deleteDataInExistingDBTableWithId(mAppName, db,
-                  mTableId, mRowId);
+              db = Sync.getInstance().getDatabase().openDatabase(mAppName);
+               Sync.getInstance().getDatabase()
+                   .resolveServerConflictWithDeleteInExistingDbTableWithId(mAppName, db,
+                       mTableId, mRowId);
               successful = true;
             } catch (RemoteException e) {
               WebLogger.getLogger(mAppName).printStackTrace(e);
@@ -350,7 +342,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             } finally {
               if (db != null) {
                 try {
-                  Sync.getInstance().getDatabase().closeTransactionAndDatabase(mAppName, db, successful);
+                  Sync.getInstance().getDatabase().closeDatabase(mAppName, db);
                 } catch (RemoteException e) {
                   WebLogger.getLogger(mAppName).printStackTrace(e);
                   WebLogger.getLogger(mAppName).e(TAG, "database access failure");
@@ -437,19 +429,11 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             Toast.makeText(ConflictResolutionRowActivity.this, "database access failure", Toast.LENGTH_LONG).show();
           } else {
             try {
-              db = Sync.getInstance().getDatabase().openDatabase(mAppName, true);
-              // update with server's changes -- leave all unspecified values
-              // unchanged
-              Sync.getInstance().getDatabase().updateDataInExistingDBTableWithId(mAppName, db,
-                  mTableId, mOrderedDefns,
-                  updateValues, mRowId);
-              // delete the record of the server row
-              Sync.getInstance().getDatabase().deleteServerConflictRowWithId(mAppName, db,
-                  mTableId, mRowId);
-              // move the local conflict back into the normal (null) state
-              Sync.getInstance().getDatabase().restoreRowFromConflict(mAppName, db,
-                  mTableId, mRowId, SyncState.deleted.name(),
-                  localConflictType);
+              db = Sync.getInstance().getDatabase().openDatabase(mAppName);
+              Sync.getInstance().getDatabase()
+                   .resolveServerConflictWithUpdateInExistingDbTableWithId(mAppName, db, mTableId,
+                       mOrderedDefns, updateValues, mRowId, SyncState.deleted.name(),
+                       localConflictType);
               successful = true;
             } catch (RemoteException e) {
               WebLogger.getLogger(mAppName).printStackTrace(e);
@@ -458,7 +442,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             } finally {
               if (db != null) {
                 try {
-                  Sync.getInstance().getDatabase().closeTransactionAndDatabase(mAppName, db, successful);
+                  Sync.getInstance().getDatabase().closeDatabase(mAppName, db);
                 } catch (RemoteException e) {
                   WebLogger.getLogger(mAppName).printStackTrace(e);
                   WebLogger.getLogger(mAppName).e(TAG, "database access failure");
@@ -540,18 +524,11 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             Toast.makeText(ConflictResolutionRowActivity.this, "database access failure", Toast.LENGTH_LONG).show();
           } else {
             try {
-              db = Sync.getInstance().getDatabase().openDatabase(mAppName, true);
-              // update with server's changes
-              Sync.getInstance().getDatabase().updateDataInExistingDBTableWithId(mAppName, db,
-                  mTableId, mOrderedDefns,
-                  updateValues, mRowId);
-              // delete the record of the server row
-              Sync.getInstance().getDatabase().deleteServerConflictRowWithId(mAppName, db,
-                  mTableId, mRowId);
-              // move the local conflict back into the normal (null) state
-              Sync.getInstance().getDatabase().restoreRowFromConflict(mAppName, db, 
-                  mTableId, mRowId, SyncState.changed.name(),
-                  localConflictType);
+              db = Sync.getInstance().getDatabase().openDatabase(mAppName);
+              Sync.getInstance().getDatabase()
+                   .resolveServerConflictWithUpdateInExistingDbTableWithId(mAppName, db, mTableId,
+                       mOrderedDefns, updateValues, mRowId, SyncState.changed.name(),
+                       localConflictType);
               successful = true;
             } catch (RemoteException e) {
               WebLogger.getLogger(mAppName).printStackTrace(e);
@@ -560,7 +537,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             } finally {
               if (db != null) {
                 try {
-                  Sync.getInstance().getDatabase().closeTransactionAndDatabase(mAppName, db, successful);
+                  Sync.getInstance().getDatabase().closeDatabase(mAppName, db);
                 } catch (RemoteException e) {
                   WebLogger.getLogger(mAppName).printStackTrace(e);
                   WebLogger.getLogger(mAppName).e(TAG, "database access failure");
@@ -640,50 +617,44 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             Toast.makeText(ConflictResolutionRowActivity.this, "database access failure", Toast.LENGTH_LONG).show();
           } else {
             try {
-              db = Sync.getInstance().getDatabase().openDatabase(mAppName, true);
-              // update with server's changes
-              Sync.getInstance().getDatabase().updateDataInExistingDBTableWithId(mAppName, db,
-                  mTableId, mOrderedDefns,
-                  updateValues, mRowId);
-              // delete the record of the server row
-              Sync.getInstance().getDatabase().deleteServerConflictRowWithId(mAppName, db,
-                  mTableId, mRowId);
-              // move the local conflict back into the normal (null) state
 
-              // determine whether we should flag this as pending files
-              // or whether it can transition directly to sync'd.
-              SyncState newState;
-              {
-                boolean hasUriFragments = false;
-                // we are collapsing to the server state. Examine the 
-                // server row. Look at all the columns that may contain file
-                // attachments. If they do (non-null, non-empty), then 
-                // set the hasUriFragments flag to true and break out of the loop.
-                // 
-                // Set the resolved row to synced_pending_files if there are
-                // non-null, non-empty file attachments in the row. This 
-                // ensures that we will pull down those attachments at the next
-                // sync.
-                Row serverRow = mConflictTable.getServerTable().getRowAtIndex(0);
-                for ( ColumnDefinition cd :  
-                    ConflictResolutionRowActivity.this.mOrderedDefns.getColumnDefinitions() ) {
-                  if (cd.getType().getDataType() != ElementDataType.rowpath) {
-                    // not a file attachment
-                    continue;
+               // determine whether we should flag this as pending files
+               // or whether it can transition directly to sync'd.
+               SyncState newState;
+               {
+                  boolean hasUriFragments = false;
+                  // we are collapsing to the server state. Examine the
+                  // server row. Look at all the columns that may contain file
+                  // attachments. If they do (non-null, non-empty), then
+                  // set the hasUriFragments flag to true and break out of the loop.
+                  //
+                  // Set the resolved row to synced_pending_files if there are
+                  // non-null, non-empty file attachments in the row. This
+                  // ensures that we will pull down those attachments at the next
+                  // sync.
+                  Row serverRow = mConflictTable.getServerTable().getRowAtIndex(0);
+                  for ( ColumnDefinition cd :
+                      ConflictResolutionRowActivity.this.mOrderedDefns.getColumnDefinitions() ) {
+                     if (cd.getType().getDataType() != ElementDataType.rowpath) {
+                        // not a file attachment
+                        continue;
+                     }
+                     String v = serverRow.getRawDataOrMetadataByElementKey(cd.getElementKey());
+                     if ( v != null && v.length() != 0 ) {
+                        // non-null file attachment specified on server row
+                        hasUriFragments = true;
+                        break;
+                     }
                   }
-                  String v = serverRow.getRawDataOrMetadataByElementKey(cd.getElementKey());
-                  if ( v != null && v.length() != 0 ) {
-                    // non-null file attachment specified on server row
-                    hasUriFragments = true;
-                    break;
-                  }
-                }
-                newState = hasUriFragments ? SyncState.synced_pending_files :
-                    SyncState.synced;
-              }
-              Sync.getInstance().getDatabase().restoreRowFromConflict(mAppName, db,
-                  mTableId, mRowId,
-                  newState.name(), localConflictType);
+                  newState = hasUriFragments ? SyncState.synced_pending_files :
+                      SyncState.synced;
+               }
+
+              db = Sync.getInstance().getDatabase().openDatabase(mAppName);
+              Sync.getInstance().getDatabase()
+                   .resolveServerConflictWithUpdateInExistingDbTableWithId(mAppName, db, mTableId,
+                       mOrderedDefns, updateValues, mRowId, newState.name(),
+                       localConflictType);
               successful = true;
             } catch (RemoteException e) {
               WebLogger.getLogger(mAppName).printStackTrace(e);
@@ -692,7 +663,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             } finally {
               if (db != null) {
                 try {
-                  Sync.getInstance().getDatabase().closeTransactionAndDatabase(mAppName, db, successful);
+                  Sync.getInstance().getDatabase().closeDatabase(mAppName, db);
                 } catch (RemoteException e) {
                   WebLogger.getLogger(mAppName).printStackTrace(e);
                   WebLogger.getLogger(mAppName).e(TAG, "database access failure");
@@ -775,17 +746,11 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             Toast.makeText(ConflictResolutionRowActivity.this, "database access failure", Toast.LENGTH_LONG).show();
           } else {
             try {
-              db = Sync.getInstance().getDatabase().openDatabase(mAppName, true);
-              // update with server's changes
-              Sync.getInstance().getDatabase().updateDataInExistingDBTableWithId(mAppName, db, 
-                  mTableId, mOrderedDefns,
-                  updateValues, mRowId);
-              // delete the record of the server row
-              Sync.getInstance().getDatabase().deleteServerConflictRowWithId(mAppName, db,
-                  mTableId, mRowId);
-              // move the local conflict back into the normal (null) state
-              Sync.getInstance().getDatabase().restoreRowFromConflict(mAppName, db, 
-                  mTableId, mRowId, SyncState.changed.name(), localConflictType);
+              db = Sync.getInstance().getDatabase().openDatabase(mAppName);
+              Sync.getInstance().getDatabase()
+                  .resolveServerConflictWithUpdateInExistingDbTableWithId(mAppName, db, mTableId,
+                      mOrderedDefns, updateValues, mRowId, SyncState.changed.name(),
+                      localConflictType);
               successful = true;
             } catch (RemoteException e) {
               WebLogger.getLogger(mAppName).printStackTrace(e);
@@ -794,7 +759,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             } finally {
               if (db != null) {
                 try {
-                  Sync.getInstance().getDatabase().closeTransactionAndDatabase(mAppName, db, successful);
+                  Sync.getInstance().getDatabase().closeDatabase(mAppName, db);
                 } catch (RemoteException e) {
                   WebLogger.getLogger(mAppName).printStackTrace(e);
                   WebLogger.getLogger(mAppName).e(TAG, "database access failure");
@@ -844,7 +809,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
     {
       OdkDbHandle db = null;
       try {
-        db = Sync.getInstance().getDatabase().openDatabase(mAppName, false);
+        db = Sync.getInstance().getDatabase().openDatabase(mAppName);
         mOrderedDefns = Sync.getInstance().getDatabase().getUserDefinedColumns(mAppName, db, mTableId);
         List<KeyValueStoreEntry> columnDisplayNames = 
             Sync.getInstance().getDatabase().getDBTableMetadata(mAppName, db,

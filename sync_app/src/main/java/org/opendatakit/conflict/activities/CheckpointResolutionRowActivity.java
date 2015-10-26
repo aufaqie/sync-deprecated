@@ -241,7 +241,7 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
             Toast.makeText(CheckpointResolutionRowActivity.this, "database access failure", Toast.LENGTH_LONG).show();
           } else {
             try {
-              db = Sync.getInstance().getDatabase().openDatabase(mAppName, true);
+              db = Sync.getInstance().getDatabase().openDatabase(mAppName);
               Sync.getInstance().getDatabase().saveAsIncompleteMostRecentCheckpointDataInDBTableWithId(mAppName, db, mTableId, mRowId);
               successful = true;
             } catch (RemoteException e) {
@@ -251,7 +251,7 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
             } finally {
               if (db != null) {
                 try {
-                  Sync.getInstance().getDatabase().closeTransactionAndDatabase(mAppName, db, successful);
+                  Sync.getInstance().getDatabase().closeDatabase(mAppName, db);
                 } catch (RemoteException e) {
                   WebLogger.getLogger(mAppName).printStackTrace(e);
                   WebLogger.getLogger(mAppName).e(TAG, "database access failure");
@@ -306,7 +306,7 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
             Toast.makeText(CheckpointResolutionRowActivity.this, "database access failure", Toast.LENGTH_LONG).show();
           } else {
             try {
-              db = Sync.getInstance().getDatabase().openDatabase(mAppName, true);
+              db = Sync.getInstance().getDatabase().openDatabase(mAppName);
               Sync.getInstance().getDatabase().deleteCheckpointRowsWithId(mAppName, db, mTableId, mRowId);
               successful = true;
             } catch (RemoteException e) {
@@ -316,7 +316,7 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
             } finally {
               if (db != null) {
                 try {
-                  Sync.getInstance().getDatabase().closeTransactionAndDatabase(mAppName, db, successful);
+                  Sync.getInstance().getDatabase().closeDatabase(mAppName, db);
                 } catch (RemoteException e) {
                   WebLogger.getLogger(mAppName).printStackTrace(e);
                   WebLogger.getLogger(mAppName).e(TAG, "database access failure");
@@ -372,7 +372,7 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
             Toast.makeText(CheckpointResolutionRowActivity.this, "database access failure", Toast.LENGTH_LONG).show();
           } else {
             try {
-              db = Sync.getInstance().getDatabase().openDatabase(mAppName, true);
+              db = Sync.getInstance().getDatabase().openDatabase(mAppName);
               Sync.getInstance().getDatabase().deleteCheckpointRowsWithId(mAppName, db, mTableId, mRowId);
               successful = true;
             } catch (RemoteException e) {
@@ -382,7 +382,7 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
             } finally {
               if (db != null) {
                 try {
-                  Sync.getInstance().getDatabase().closeTransactionAndDatabase(mAppName, db, successful);
+                  Sync.getInstance().getDatabase().closeDatabase(mAppName, db);
                 } catch (RemoteException e) {
                   WebLogger.getLogger(mAppName).printStackTrace(e);
                   WebLogger.getLogger(mAppName).e(TAG, "database access failure");
@@ -433,7 +433,7 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
     {
       OdkDbHandle db = null;
       try {
-        db = Sync.getInstance().getDatabase().openDatabase(mAppName, false);
+        db = Sync.getInstance().getDatabase().openDatabase(mAppName);
         mOrderedDefns = Sync.getInstance().getDatabase().getUserDefinedColumns(mAppName, db, mTableId);
 
         List<KeyValueStoreEntry> columnDisplayNames = 

@@ -140,7 +140,7 @@ public class ProcessAppAndTableLevelChanges {
     List<String> localTableIds;
     OdkDbHandle db = null;
     try {
-      db = sc.getDatabase(false);
+      db = sc.getDatabase();
       localTableIds = Sync.getInstance().getDatabase().getAllTableIds(sc.getAppName(), db);
     } catch (RemoteException e) {
       sc.setAppLevelStatus(Status.EXCEPTION);
@@ -251,7 +251,7 @@ public class ProcessAppAndTableLevelChanges {
           TableDefinitionEntry entry;
           OrderedColumns orderedDefns;
           try {
-            db = sc.getDatabase(false);
+            db = sc.getDatabase();
             entry = Sync.getInstance().getDatabase().getTableDefinitionEntry(sc.getAppName(), db, localTableId);
             orderedDefns = Sync.getInstance().getDatabase().getUserDefinedColumns(sc.getAppName(), db, localTableId);
           } finally {
@@ -345,7 +345,7 @@ public class ProcessAppAndTableLevelChanges {
           // see if the schemaETag matches. If so, we can skip a lot of steps...
           // no need to verify schema match -- just sync files...
           try {
-            db = sc.getDatabase(false);
+            db = sc.getDatabase();
             entry = Sync.getInstance().getDatabase().getTableDefinitionEntry(sc.getAppName(), db, serverTableId);
             orderedDefns = Sync.getInstance().getDatabase().getUserDefinedColumns(sc.getAppName(), db, serverTableId);
             if (table.getSchemaETag().equals(entry.getSchemaETag())) {
@@ -374,7 +374,8 @@ public class ProcessAppAndTableLevelChanges {
 
             boolean successful = false;
             try {
-              db = sc.getDatabase(true);
+              db = sc.getDatabase();
+              Sync.getInstance().getDatabase().beginTransaction(sc.getAppName(), db);
               orderedDefns = addTableFromDefinitionResource(db, definitionResource,
                   doesNotExistLocally);
               entry = Sync.getInstance().getDatabase().getTableDefinitionEntry(sc.getAppName(), db, serverTableId);
@@ -429,11 +430,10 @@ public class ProcessAppAndTableLevelChanges {
         // eventually might not be true if there are multiple syncs running
         // simultaneously...
         TableResult tableResult = sc.getTableResult(localTableId);
-        boolean successful = false;
         try {
-          db = sc.getDatabase(true);
+          db = sc.getDatabase();
+          // this is an atomic action -- no need to gain transaction before invoking it
           Sync.getInstance().getDatabase().deleteDBTableAndAllData(sc.getAppName(), db, localTableId);
-          successful = true;
         } catch (RemoteException e) {
           exception("synchronizeConfigurationAndContent - database exception deleting table", localTableId, e, tableResult);
         } catch (Exception e) {
@@ -441,7 +441,7 @@ public class ProcessAppAndTableLevelChanges {
         } finally {
           if (db != null) {
             try {
-              Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, successful);
+              Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
               tableResult.setStatus(Status.SUCCESS);
             } finally {
               db = null;
@@ -483,6 +483,15 @@ public class ProcessAppAndTableLevelChanges {
    * @throws InvalidAuthTokenException 
    * @throws ClientWebException 
    */
+   /**
+    *
+    * @param te the table to synchronize
+    * @param orderedDefns the user-defined columns in the table
+    * @param resource the structure returned from the server
+    * @param pushLocalTableLevelFiles
+    * @return
+    * @throws RemoteException
+    */
   private TableResource synchronizeTableConfigurationAndContent(TableDefinitionEntry te,
       OrderedColumns orderedDefns, TableResource resource,
       boolean pushLocalTableLevelFiles) throws RemoteException {
@@ -503,7 +512,7 @@ public class ProcessAppAndTableLevelChanges {
     String displayName;
     OdkDbHandle db = null;
     try {
-      db = sc.getDatabase(false);
+      db = sc.getDatabase();
       displayName = CommonUtils.getLocalizedDisplayName(sc.getAppName(), db, tableId);
       tableResult.setTableDisplayName(displayName);
     } finally {
@@ -529,43 +538,22 @@ public class ProcessAppAndTableLevelChanges {
         // the insert of the table was incomplete -- try again
 
         // we are creating data on the server
-
-        boolean successful = false;
         try {
-          db = sc.getDatabase(true);
-          // change row sync and conflict status to handle new server schema.
-          // Clean up this table and set the dataETag to null.
-          Sync.getInstance().getDatabase().changeDataRowsToNewRowState(sc.getAppName(), db, tableId);
-          // we need to clear out the dataETag so
-          // that we will pull all server changes and sync our properties.
-          Sync.getInstance().getDatabase().updateDBTableETags(sc.getAppName(), db, tableId, null, null);
-          //
-          // Although the server does not recognize this tableId, we can
-          // keep our record of the ETags for the table-level files and
-          // manifest. These may enable us to short-circuit the restoration
-          // of the table-level files should another client be simultaneously
-          // trying to restore those files to the server.
-          //
-          // However, we do need to delete all the instance-level files,
-          // as these are tied to the schemaETag we hold, and that is now
-          // invalid.
-          if (schemaETag != null) {
-            // if the local table ever had any server sync information for this
-            // host then clear it. If the user changed the server URL, we have
-            // already cleared this information.
-            //
-            // Clearing it here handles the case where an admin deleted the
-            // table on the server and we are now re-pushing that table to
-            // the server.
+          String tableInstanceFilesUriString = null;
+
+          if ( schemaETag != null) {
             URI tableInstanceFilesUri = sc.getSynchronizer().constructTableInstanceFileUri(tableId,
                 schemaETag);
-            Sync.getInstance().getDatabase().deleteAllSyncETagsUnderServer(sc.getAppName(), db, tableInstanceFilesUri.toString());
+            tableInstanceFilesUriString = tableInstanceFilesUri.toString();
           }
-          successful = true;
+
+          db = sc.getDatabase();
+          Sync.getInstance().getDatabase().serverTableSchemaETagChanged(sc.getAppName(), db,
+               tableId, tableInstanceFilesUriString);
         } finally {
           if (db != null) {
             try {
-              Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, successful);
+              Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
             } finally {
               db = null;
             }
@@ -596,16 +584,14 @@ public class ProcessAppAndTableLevelChanges {
         }
 
         schemaETag = resource.getSchemaETag();
-        boolean xsuccessful = false;
         try {
-          db = sc.getDatabase(true);
+          db = sc.getDatabase();
           // update schemaETag to that on server (dataETag is null already).
           Sync.getInstance().getDatabase().updateDBTableETags(sc.getAppName(), db, tableId, schemaETag, null);
-          xsuccessful = true;
         } finally {
           if (db != null) {
             try {
-              Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, xsuccessful);
+              Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
             } finally {
               db = null;
             }
@@ -654,7 +640,8 @@ public class ProcessAppAndTableLevelChanges {
         tableResult.setPulledServerSchema(true);
         boolean successful = false;
         try {
-          db = sc.getDatabase(true);
+          db = sc.getDatabase();
+          Sync.getInstance().getDatabase().beginTransaction(sc.getAppName(), db);
           // apply changes
           // this also updates the data rows so they will sync
           orderedDefns = addTableFromDefinitionResource(db, definitionResource, false);
@@ -688,7 +675,7 @@ public class ProcessAppAndTableLevelChanges {
       // write our properties and definitions files.
       // write the current schema and properties set.
       try {
-        db = sc.getDatabase(false);
+        db = sc.getDatabase();
         sc.getCsvUtil().writePropertiesCsv(db, tableId, orderedDefns);
       } finally {
         if (db != null) {
@@ -762,13 +749,13 @@ public class ProcessAppAndTableLevelChanges {
    * This should be called when downloading a table from the server, which is
    * why the syncTag is separate.
    *
-   * @param definitionResource
-   * @param syncTag
-   *          the syncTag belonging to the modification from which you acquired
-   *          the {@link TableDefinitionResource}.
-   * @return the new {@link TableProperties} for the table.
+   * @param db
+   * @param definitionResource the resource that specifies the table syncTag (for revision
+   *                           management).
+   * @param doesNotExistLocally
+   * @return the new {@link OrderedColumns} for the table.
    * @throws SchemaMismatchException
-   * @throws RemoteException 
+   * @throws RemoteException
    */
   private OrderedColumns addTableFromDefinitionResource(OdkDbHandle db,
       TableDefinitionResource definitionResource, boolean doesNotExistLocally)

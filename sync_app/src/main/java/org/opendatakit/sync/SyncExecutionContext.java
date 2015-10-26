@@ -92,8 +92,8 @@ public class SyncExecutionContext implements SynchronizerStatus {
     return synchronizer;
   }
   
-  public OdkDbHandle getDatabase(boolean withTransaction) throws RemoteException {
-    return Sync.getInstance().getDatabase().openDatabase(appName, withTransaction);
+  public OdkDbHandle getDatabase() throws RemoteException {
+    return Sync.getInstance().getDatabase().openDatabase(appName);
   }
 
   public void resetMajorSyncSteps(int nMajorSyncSteps) {

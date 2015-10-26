@@ -116,7 +116,7 @@ public class ConflictResolutionListActivity extends BaseListActivity implements 
     OdkDbHandle db = null;
     UserTable table = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(mAppName, false);
+      db = Sync.getInstance().getDatabase().openDatabase(mAppName);
       OrderedColumns orderedDefns = Sync.getInstance().getDatabase().getUserDefinedColumns(
           mAppName, db, mTableId);
       String[] empty = {};

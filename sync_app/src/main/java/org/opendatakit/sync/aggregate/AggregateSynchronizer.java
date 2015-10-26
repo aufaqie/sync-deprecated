@@ -261,10 +261,9 @@ public class AggregateSynchronizer implements Synchronizer {
   /**
    * Get the URI for the file servlet on the Aggregate server located at
    * aggregateUri.
-   *
-   * @param aggregateUri
-   * @return
-   */
+    *
+    * @return
+    */
   private String getFilePathURI() {
     return "/odktables/" + escapeSegment(appName) + "/files/" + escapeSegment(odkClientApiVersion)
         + "/";
@@ -742,27 +741,18 @@ public class AggregateSynchronizer implements Synchronizer {
   /**
    * Get all the files under the given folder, excluding those directories that
    * are the concatenation of folder and a member of excluding. If the member of
-   * excluding is a directory, none of its children will be synched either.
+   * excluding is a directory, none of its children will be reported.
    * <p>
-   * If the folder doesn't exist it returns an empty list.
+   * If the baseFolder doesn't exist it returns an empty list.
    * <p>
-   * If the file exists but is not a directory, logs an error and returns an
+   * If the baseFolder exists but is not a directory, logs an error and returns an
    * empty list.
    * 
-   * @param folder
-   * @param excluding
+   * @param baseFolder
+   * @param excludingNamedItemsUnderFolder
    *          can be null--nothing will be excluded. Should be relative to the
    *          given folder.
-   * @param relativeTo
-   *          the path to which the returned paths will be relative. A null
-   *          value makes them relative to the folder parameter. If it is non
-   *          null, folder must start with relativeTo, or else the files in
-   *          folder could not possibly be relative to relativeTo. In this case
-   *          will throw an IllegalArgumentException.
-   * @return the relative paths of the files under the folder--i.e. the paths
-   *         after the folder parameter, not including the first separator
-   * @throws IllegalArgumentException
-   *           if relativeTo is not a substring of folder.
+   * @return list of app-relative paths of the files and directories that were found.
    */
   private List<String> getAllFilesUnderFolder(File baseFolder,
       final Set<String> excludingNamedItemsUnderFolder) {
@@ -1630,7 +1620,7 @@ public class AggregateSynchronizer implements Synchronizer {
   private String getFileSyncETag(Context context, String appName, URI fileDownloadUri, String tableId, long lastModified) throws RemoteException {
     OdkDbHandle db = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(appName, false);
+      db = Sync.getInstance().getDatabase().openDatabase(appName);
       return Sync.getInstance().getDatabase().getFileSyncETag(appName, db, fileDownloadUri.toString(), tableId,
           lastModified);
     } finally {
@@ -1641,16 +1631,14 @@ public class AggregateSynchronizer implements Synchronizer {
   }
 
   private void updateFileSyncETag(Context context, String appName, URI fileDownloadUri, String tableId, long lastModified, String documentETag) throws RemoteException {
-    boolean successful = false;
     OdkDbHandle db = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(appName, true);
+      db = Sync.getInstance().getDatabase().openDatabase(appName);
       Sync.getInstance().getDatabase().updateFileSyncETag(appName, db, fileDownloadUri.toString(), tableId,
           lastModified, documentETag);
-      successful = true;
     } finally {
       if ( db != null ) {
-        Sync.getInstance().getDatabase().closeTransactionAndDatabase(appName, db, successful);
+        Sync.getInstance().getDatabase().closeDatabase(appName, db);
       }
     }
   }
@@ -1658,7 +1646,7 @@ public class AggregateSynchronizer implements Synchronizer {
   private String getManifestSyncETag(Context context, String appName, URI fileDownloadUri, String tableId) throws RemoteException {
     OdkDbHandle db = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(appName, false);
+      db = Sync.getInstance().getDatabase().openDatabase(appName);
       return Sync.getInstance().getDatabase().getManifestSyncETag(appName, db, fileDownloadUri.toString(), tableId);
     } finally {
       if ( db != null ) {
@@ -1668,16 +1656,14 @@ public class AggregateSynchronizer implements Synchronizer {
   }
 
   private void updateManifestSyncETag(Context context, String appName, URI fileDownloadUri, String tableId, String documentETag) throws RemoteException {
-    boolean successful = false;
     OdkDbHandle db = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(appName, true);
+      db = Sync.getInstance().getDatabase().openDatabase(appName);
       Sync.getInstance().getDatabase().updateManifestSyncETag(appName, db, fileDownloadUri.toString(), tableId,
           documentETag);
-      successful = true;
     } finally {
       if ( db != null ) {
-        Sync.getInstance().getDatabase().closeTransactionAndDatabase(appName, db, successful);
+        Sync.getInstance().getDatabase().closeDatabase(appName, db);
       }
     }
   }

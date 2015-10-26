@@ -207,7 +207,7 @@ public class ProcessRowDataChanges {
       OrderedColumns orderedDefns;
       String displayName;
       try {
-        db = sc.getDatabase(false);
+        db = sc.getDatabase();
         te = Sync.getInstance().getDatabase().getTableDefinitionEntry(sc.getAppName(), db, tableId);
         orderedDefns = Sync.getInstance().getDatabase().getUserDefinedColumns(sc.getAppName(), db, tableId);
         displayName = CommonUtils.getLocalizedDisplayName(sc.getAppName(), db, tableId);
@@ -453,7 +453,7 @@ public class ProcessRowDataChanges {
       boolean inTransaction = false;
       boolean successful = false;
       try {
-        db = sc.getDatabase(false);
+        db = sc.getDatabase();
 
         // this will individually move some files to the locally-deleted state
         // if we cannot sync file attachments in those rows.
@@ -613,7 +613,7 @@ public class ProcessRowDataChanges {
             {
               OdkDbHandle db = null;
               try {
-                db = sc.getDatabase(false);
+                db = sc.getDatabase();
                 String[] empty = {};
                 localDataTable = Sync.getInstance().getDatabase().rawSqlQuery(sc.getAppName(), db, tableId,
                     orderedColumns, null, empty, empty, null, DataTableColumns.ID, "ASC");
@@ -703,25 +703,22 @@ public class ProcessRowDataChanges {
                 // a starting point.
                 {
                   OdkDbHandle db = null;
-                  boolean successful = false;
                   try {
-                    db = sc.getDatabase(true);
+                    db = sc.getDatabase();
                     // update the dataETag to the one returned by the first
                     // of the fetch queries, above.
                     Sync.getInstance().getDatabase().updateDBTableETags(sc.getAppName(), db, 
                         tableId,
                         tableResource.getSchemaETag(), firstDataETag);
-                    successful = true;
+                    // the above will throw a RemoteException if the change is not committed
+                    // and be sure to update our in-memory objects...
+                    te.setSchemaETag(tableResource.getSchemaETag());
+                    te.setLastDataETag(firstDataETag);
+                    tableResource.setDataETag(firstDataETag);
                   } finally {
                     if (db != null) {
                       try {
-                        Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, successful);
-                        if ( successful ) {
-                          // and be sure to update our in-memory objects...
-                          te.setSchemaETag(tableResource.getSchemaETag());
-                          te.setLastDataETag(firstDataETag);
-                          tableResource.setDataETag(firstDataETag);
-                        }
+                        Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
                       } finally {
                         db = null;
                       }
@@ -853,25 +850,22 @@ public class ProcessRowDataChanges {
                 // interleaved changes we are unaware of.
                 {
                   OdkDbHandle db = null;
-                  boolean successful = false;
                   try {
-                    db = sc.getDatabase(true);
+                    db = sc.getDatabase();
                     // update the dataETag to the one returned by the first
                     // of the fetch queries, above.
                     Sync.getInstance().getDatabase().updateDBTableETags(sc.getAppName(), db, 
                         tableId,
                         tableResource.getSchemaETag(), outcomes.getDataETag());
-                    successful = true;
+                    // the above will throw a RemoteException if the changed were not committed.
+                    // and be sure to update our in-memory objects...
+                    te.setSchemaETag(tableResource.getSchemaETag());
+                    te.setLastDataETag(outcomes.getDataETag());
+                    tableResource.setDataETag(outcomes.getDataETag());
                   } finally {
                     if (db != null) {
                       try {
-                        Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, successful);
-                        if ( successful ) {
-                          // and be sure to update our in-memory objects...
-                          te.setSchemaETag(tableResource.getSchemaETag());
-                          te.setLastDataETag(outcomes.getDataETag());
-                          tableResource.setDataETag(outcomes.getDataETag());
-                        }
+                        Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
                       } finally {
                         
                       }
@@ -948,15 +942,13 @@ public class ProcessRowDataChanges {
                     // OK -- we succeeded in putting/getting all attachments
                     // update our state to the synced state.
                     OdkDbHandle db = null;
-                    boolean successful = false;
                     try {
-                      db = sc.getDatabase(true);
+                      db = sc.getDatabase();
                       Sync.getInstance().getDatabase().updateRowETagAndSyncState(sc.getAppName(), db, tableId,
                           syncRowPending.getRowId(), syncRowPending.getRowETag(), SyncState.synced.name());
-                      successful = true;
                     } finally {
                       if (db != null) {
-                        Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, successful);
+                        Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
                         db = null;
                       }
                     }
@@ -1006,14 +998,12 @@ public class ProcessRowDataChanges {
         // attachments were successfully
         // sync'd.
         OdkDbHandle db = null;
-        boolean successful = false;
         try {
-          db = sc.getDatabase(true);
+          db = sc.getDatabase();
           Sync.getInstance().getDatabase().updateDBTableLastSyncTime(sc.getAppName(), db, tableId);
-          successful = true;
         } finally {
           if (db != null) {
-            Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, successful);
+            Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
             db = null;
           }
         }
@@ -1068,7 +1058,8 @@ public class ProcessRowDataChanges {
     OdkDbHandle db = null;
     boolean successful = false;
     try {
-      db = sc.getDatabase(true);
+      db = sc.getDatabase();
+      Sync.getInstance().getDatabase().beginTransaction(sc.getAppName(), db);
 
       for (int i = 0; i < segmentAlter.size(); ++i) {
         RowOutcome r = outcomes.get(i);
@@ -1440,18 +1431,16 @@ public class ProcessRowDataChanges {
    * server, the 'isRestPendingFiles' flag is cleared. This makes the local row
    * eligible for deletion. Otherwise, the localRow is removed from the
    * localRowplaced in the
-   * 
-   * @param db
-   * @param resource
-   * @param tableId
-   * @param changes
-   * @param fileAttachmentColumns
-   * @param deferInstanceAttachments
-   * @param tableResult
-   * @return
-   * @throws IOException
-   * @throws RemoteException 
-   */
+    *
+    * @param db
+    * @param resource
+    * @param changes
+    * @param fileAttachmentColumns
+    * @param deferInstanceAttachments
+    * @param tableResult
+    * @throws IOException
+    * @throws RemoteException
+    */
   private void pushLocalAttachmentsBeforeDeleteRowsInDb(OdkDbHandle db, TableResource resource,
       List<SyncRowDataChanges> changes, ArrayList<ColumnDefinition> fileAttachmentColumns,
       boolean deferInstanceAttachments, TableResult tableResult) throws IOException, RemoteException {
