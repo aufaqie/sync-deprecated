@@ -32,6 +32,7 @@ import org.opendatakit.common.android.data.ColumnList;
 import org.opendatakit.common.android.data.OrderedColumns;
 import org.opendatakit.common.android.data.TableDefinitionEntry;
 import org.opendatakit.common.android.provider.FormsColumns;
+import org.opendatakit.common.android.utilities.TableUtil;
 import org.opendatakit.common.android.utilities.WebLogger;
 import org.opendatakit.database.service.OdkDbHandle;
 import org.opendatakit.sync.SynchronizationResult.Status;
@@ -513,7 +514,8 @@ public class ProcessAppAndTableLevelChanges {
     OdkDbHandle db = null;
     try {
       db = sc.getDatabase();
-      displayName = CommonUtils.getLocalizedDisplayName(sc.getAppName(), db, tableId);
+      displayName = TableUtil.get().getLocalizedDisplayName(Sync.getInstance(), sc.getAppName(),
+          db, tableId);
       tableResult.setTableDisplayName(displayName);
     } finally {
       if (db != null) {

@@ -41,6 +41,7 @@ import org.opendatakit.common.android.data.UserTable;
 import org.opendatakit.common.android.data.Row;
 import org.opendatakit.common.android.provider.DataTableColumns;
 import org.opendatakit.common.android.provider.FormsColumns;
+import org.opendatakit.common.android.utilities.TableUtil;
 import org.opendatakit.common.android.utilities.WebLogger;
 import org.opendatakit.database.service.OdkDbHandle;
 import org.opendatakit.sync.SynchronizationResult.Status;
@@ -210,7 +211,8 @@ public class ProcessRowDataChanges {
         db = sc.getDatabase();
         te = Sync.getInstance().getDatabase().getTableDefinitionEntry(sc.getAppName(), db, tableId);
         orderedDefns = Sync.getInstance().getDatabase().getUserDefinedColumns(sc.getAppName(), db, tableId);
-        displayName = CommonUtils.getLocalizedDisplayName(sc.getAppName(), db, tableId);
+        displayName = TableUtil.get().getLocalizedDisplayName(Sync.getInstance(), sc.getAppName(),
+             db, tableId);
       } finally {
         if (db != null) {
           Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
