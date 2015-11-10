@@ -43,6 +43,7 @@ import org.opendatakit.common.android.provider.DataTableColumns;
 import org.opendatakit.common.android.provider.FormsColumns;
 import org.opendatakit.common.android.utilities.TableUtil;
 import org.opendatakit.common.android.utilities.WebLogger;
+import org.opendatakit.common.android.utilities.WebLoggerIf;
 import org.opendatakit.database.service.OdkDbHandle;
 import org.opendatakit.sync.SynchronizationResult.Status;
 import org.opendatakit.sync.application.Sync;
@@ -75,7 +76,7 @@ public class ProcessRowDataChanges {
     mapper.setVisibilityChecker(mapper.getVisibilityChecker().withFieldVisibility(Visibility.ANY));
   }
 
-  private WebLogger log;
+  private WebLoggerIf log;
 
   private final SyncExecutionContext sc;
 
