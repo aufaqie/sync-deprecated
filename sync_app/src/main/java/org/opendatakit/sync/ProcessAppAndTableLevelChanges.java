@@ -34,6 +34,7 @@ import org.opendatakit.common.android.data.TableDefinitionEntry;
 import org.opendatakit.common.android.provider.FormsColumns;
 import org.opendatakit.common.android.utilities.TableUtil;
 import org.opendatakit.common.android.utilities.WebLogger;
+import org.opendatakit.common.android.utilities.WebLoggerIf;
 import org.opendatakit.database.service.OdkDbHandle;
 import org.opendatakit.sync.SynchronizationResult.Status;
 import org.opendatakit.sync.Synchronizer.OnTablePropertiesChanged;
@@ -55,7 +56,7 @@ public class ProcessAppAndTableLevelChanges {
 
   private static final String TAG = ProcessAppAndTableLevelChanges.class.getSimpleName();
 
-  private WebLogger log;
+  private WebLoggerIf log;
   
   private SyncExecutionContext sc;
 
