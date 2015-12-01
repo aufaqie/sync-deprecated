@@ -1074,16 +1074,11 @@ public class ProcessRowDataChanges {
 
           if (r.isDeleted()) {
             // DELETE
-            // move the local record into the 'new_row' sync state
-            // so it can be physically deleted.
-            Sync.getInstance().getDatabase().updateRowETagAndSyncState(sc.getAppName(), db, 
-                resource.getTableId(),
-                r.getRowId(), null, SyncState.new_row.name());
+            // same as a conflict resolution to accept server-side changes
+            Sync.getInstance().getDatabase().resolveServerConflictWithDeleteRowWithId(sc
+                .getAppName(), db, resource.getTableId(), r.getRowId());
             // !!Important!! update the rowETag in our copy of this row.
             syncRow.setRowETag(r.getRowETag());
-            // and physically delete row and attachments from database.
-            Sync.getInstance().getDatabase().deleteDataInExistingDBTableWithId(sc.getAppName(), db,
-                resource.getTableId(), r.getRowId());
             tableResult.incServerDeletes();
           } else {
            Sync.getInstance().getDatabase().updateRowETagAndSyncState(
@@ -1200,12 +1195,7 @@ public class ProcessRowDataChanges {
       SyncRow serverRow = change.serverRow;
       log.i(TAG,
           "conflicting row, id=" + serverRow.getRowId() + " rowETag=" + serverRow.getRowETag());
-      ContentValues values = new ContentValues();
 
-      // delete the old server-values in_conflict row if it exists
-      Sync.getInstance().getDatabase().deleteServerConflictRowWithId(sc.getAppName(), db,
-          resource.getTableId(),
-          serverRow.getRowId());
       // update existing localRow
 
       // the localRow conflict type was determined when the
@@ -1226,20 +1216,14 @@ public class ProcessRowDataChanges {
         // special case -- the server and local rows are both being deleted --
         // just delete them!
 
-        // move the local record into the 'new_row' sync state
-        // so it can be physically deleted.
-        Sync.getInstance().getDatabase().updateRowETagAndSyncState(sc.getAppName(), db,
-            resource.getTableId(),
-            serverRow.getRowId(), null, SyncState.new_row.name());
-        // and physically delete it.
-        Sync.getInstance().getDatabase().deleteDataInExistingDBTableWithId(sc.getAppName(), db,
-            resource.getTableId(), serverRow.getRowId());
+        // this is the same action as during conflict-resolution when we choose
+        // to accept the server delete status over any local changes.
+        Sync.getInstance().getDatabase().resolveServerConflictWithDeleteRowWithId(
+            sc.getAppName(), db, resource.getTableId(), serverRow.getRowId());
 
         tableResult.incLocalDeletes();
       } else {
-        // update the localRow to be in_conflict
-        Sync.getInstance().getDatabase().placeRowIntoConflict(sc.getAppName(), db, resource.getTableId(),
-            serverRow.getRowId(), localRowConflictType);
+        ContentValues values = new ContentValues();
 
         // set up to insert the in_conflict row from the server
         for (DataKeyValue entry : serverRow.getValues()) {
@@ -1259,9 +1243,10 @@ public class ProcessRowDataChanges {
         values.put(DataTableColumns.FILTER_TYPE,
             (type == null) ? Scope.Type.DEFAULT.name() : type.name());
         values.put(DataTableColumns.FILTER_VALUE, serverRow.getFilterScope().getValue());
-        Sync.getInstance().getDatabase().insertDataIntoExistingDBTableWithId(sc.getAppName(), db,
-            resource.getTableId(),
-            orderedColumns, values, serverRow.getRowId());
+
+        Sync.getInstance().getDatabase().placeRowIntoServerConflictWithId(sc.getAppName(), db,
+            resource.getTableId(), orderedColumns, values, serverRow.getRowId(),
+            localRowConflictType);
 
         // We're going to check our representation invariant here. A local and
         // a server version of the row should only ever be changed/changed,
@@ -1340,7 +1325,7 @@ public class ProcessRowDataChanges {
         values.put(colName, entry.value);
       }
 
-      Sync.getInstance().getDatabase().insertDataIntoExistingDBTableWithId(sc.getAppName(), db,
+      Sync.getInstance().getDatabase().insertRowWithId(sc.getAppName(), db,
           resource.getTableId(),
           orderedColumns, values, serverRow.getRowId());
       tableResult.incLocalInserts();
@@ -1409,7 +1394,7 @@ public class ProcessRowDataChanges {
         values.put(colName, entry.value);
       }
 
-      Sync.getInstance().getDatabase().updateDataInExistingDBTableWithId(sc.getAppName(), db,
+      Sync.getInstance().getDatabase().updateRowWithId(sc.getAppName(), db,
           resource.getTableId(),
           orderedColumns, values, serverRow.getRowId());
       tableResult.incLocalUpdates();
@@ -1509,13 +1494,10 @@ public class ProcessRowDataChanges {
     for (SyncRowDataChanges change : changes) {
       if (!change.isRestPendingFiles) {
         // DELETE
-        // move the local record into the 'new_row' sync state
-        // so it can be physically deleted.
-        Sync.getInstance().getDatabase().updateRowETagAndSyncState(sc.getAppName(), db, resource.getTableId(),
-            change.serverRow.getRowId(), null, SyncState.new_row.name());
-        // and physically delete row and attachments from database.
-        Sync.getInstance().getDatabase().deleteDataInExistingDBTableWithId(sc.getAppName(), db,
-            resource.getTableId(), change.serverRow.getRowId());
+        // this is equivalent to the conflict-resolution action where we accept the server delete
+        // this ensures there are no server conflict rows, and that the local row is removed.
+        Sync.getInstance().getDatabase().resolveServerConflictWithDeleteRowWithId(
+            sc.getAppName(), db, resource.getTableId(), change.serverRow.getRowId());
         tableResult.incLocalDeletes();
       }
       ++count;

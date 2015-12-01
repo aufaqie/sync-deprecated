@@ -242,7 +242,8 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
           } else {
             try {
               db = Sync.getInstance().getDatabase().openDatabase(mAppName);
-              Sync.getInstance().getDatabase().saveAsIncompleteMostRecentCheckpointDataInDBTableWithId(mAppName, db, mTableId, mRowId);
+              Sync.getInstance().getDatabase().saveAsIncompleteMostRecentCheckpointRowWithId(
+                  mAppName, db, mTableId, mOrderedDefns, null, mRowId);
               successful = true;
             } catch (RemoteException e) {
               WebLogger.getLogger(mAppName).printStackTrace(e);
@@ -307,7 +308,8 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
           } else {
             try {
               db = Sync.getInstance().getDatabase().openDatabase(mAppName);
-              Sync.getInstance().getDatabase().deleteCheckpointRowsWithId(mAppName, db, mTableId, mRowId);
+              Sync.getInstance().getDatabase().deleteAllCheckpointRowsWithId(mAppName, db, mTableId,
+                  mOrderedDefns, mRowId);
               successful = true;
             } catch (RemoteException e) {
               WebLogger.getLogger(mAppName).printStackTrace(e);
@@ -373,7 +375,8 @@ public class CheckpointResolutionRowActivity extends BaseListActivity implements
           } else {
             try {
               db = Sync.getInstance().getDatabase().openDatabase(mAppName);
-              Sync.getInstance().getDatabase().deleteCheckpointRowsWithId(mAppName, db, mTableId, mRowId);
+              Sync.getInstance().getDatabase().deleteAllCheckpointRowsWithId(mAppName, db, mTableId,
+                  mOrderedDefns, mRowId);
               successful = true;
             } catch (RemoteException e) {
               WebLogger.getLogger(mAppName).printStackTrace(e);

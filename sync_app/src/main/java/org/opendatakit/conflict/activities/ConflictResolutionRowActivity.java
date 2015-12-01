@@ -332,7 +332,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             try {
               db = Sync.getInstance().getDatabase().openDatabase(mAppName);
                Sync.getInstance().getDatabase()
-                   .resolveServerConflictWithDeleteInExistingDbTableWithId(mAppName, db,
+                   .resolveServerConflictWithDeleteRowWithId(mAppName, db,
                        mTableId, mRowId);
               successful = true;
             } catch (RemoteException e) {
@@ -431,7 +431,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             try {
               db = Sync.getInstance().getDatabase().openDatabase(mAppName);
               Sync.getInstance().getDatabase()
-                   .resolveServerConflictWithUpdateInExistingDbTableWithId(mAppName, db, mTableId,
+                   .resolveServerConflictWithUpdateRowWithId(mAppName, db, mTableId,
                        mOrderedDefns, updateValues, mRowId, SyncState.deleted.name(),
                        localConflictType);
               successful = true;
@@ -526,7 +526,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             try {
               db = Sync.getInstance().getDatabase().openDatabase(mAppName);
               Sync.getInstance().getDatabase()
-                   .resolveServerConflictWithUpdateInExistingDbTableWithId(mAppName, db, mTableId,
+                   .resolveServerConflictWithUpdateRowWithId(mAppName, db, mTableId,
                        mOrderedDefns, updateValues, mRowId, SyncState.changed.name(),
                        localConflictType);
               successful = true;
@@ -652,7 +652,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
 
               db = Sync.getInstance().getDatabase().openDatabase(mAppName);
               Sync.getInstance().getDatabase()
-                   .resolveServerConflictWithUpdateInExistingDbTableWithId(mAppName, db, mTableId,
+                   .resolveServerConflictWithUpdateRowWithId(mAppName, db, mTableId,
                        mOrderedDefns, updateValues, mRowId, newState.name(),
                        localConflictType);
               successful = true;
@@ -748,7 +748,7 @@ public class ConflictResolutionRowActivity extends BaseListActivity implements
             try {
               db = Sync.getInstance().getDatabase().openDatabase(mAppName);
               Sync.getInstance().getDatabase()
-                  .resolveServerConflictWithUpdateInExistingDbTableWithId(mAppName, db, mTableId,
+                  .resolveServerConflictWithUpdateRowWithId(mAppName, db, mTableId,
                       mOrderedDefns, updateValues, mRowId, SyncState.changed.name(),
                       localConflictType);
               successful = true;
