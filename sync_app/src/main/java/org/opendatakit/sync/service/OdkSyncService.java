@@ -24,6 +24,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
+import org.slf4j.impl.AndroidLoggerFactory;
 
 public class OdkSyncService extends Service {
 

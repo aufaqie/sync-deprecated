@@ -14,12 +14,18 @@
 
 package org.opendatakit.sync;
 
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import org.opendatakit.common.android.application.CommonApplication;
+import org.opendatakit.common.android.logic.CommonToolProperties;
+import org.opendatakit.common.android.logic.PropertiesSingleton;
 import org.opendatakit.common.android.utilities.CsvUtil;
+import org.opendatakit.common.android.utilities.WebLogger;
 import org.opendatakit.database.service.OdkDbHandle;
 import org.opendatakit.sync.SynchronizationResult.Status;
 import org.opendatakit.sync.Synchronizer.SynchronizerStatus;
 import org.opendatakit.sync.application.Sync;
+import org.opendatakit.sync.logic.SyncToolProperties;
 import org.opendatakit.sync.service.SyncNotification;
 import org.opendatakit.sync.service.SyncProgressState;
 
@@ -31,6 +37,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class SyncExecutionContext implements SynchronizerStatus {
 
   private static final String TAG = "SyncExecutionContext";
+  private static final String ACCOUNT_TYPE_G = "com.google";
+
   private static final int OVERALL_PROGRESS_BAR_LENGTH = 6350400;
   private static final ObjectMapper mapper;
 
@@ -50,15 +58,26 @@ public class SyncExecutionContext implements SynchronizerStatus {
 
   private final CommonApplication context;
   private final String appName;
+  private final String odkClientApiVersion;
+  private final String aggregateUri;
   private final SyncNotification syncProgress;
-  private final Synchronizer synchronizer;
   private final CsvUtil utils;
+
+  // set this later
+  private Synchronizer synchronizer;
+
+  private OdkDbHandle odkDbHandle = null;
   
-  public SyncExecutionContext(CommonApplication context, String appName, Synchronizer synchronizer, SyncNotification syncProgress, SynchronizationResult syncResult) {
+  public SyncExecutionContext(CommonApplication context, String appName,
+      String odkClientApiVersion, String aggregateUri,
+      SyncNotification syncProgress,
+      SynchronizationResult syncResult) {
     this.context = context;
     this.appName = appName;
+    this.odkClientApiVersion = odkClientApiVersion;
+    this.aggregateUri = aggregateUri;
     this.syncProgress = syncProgress;
-    this.synchronizer = synchronizer;
+    this.synchronizer = null;
     this.utils = new CsvUtil(context, appName);
     this.mUserResult = syncResult;
     
@@ -66,6 +85,10 @@ public class SyncExecutionContext implements SynchronizerStatus {
     this.GRAINS_PER_MAJOR_SYNC_STEP = (OVERALL_PROGRESS_BAR_LENGTH / nMajorSyncSteps);
     this.iMajorSyncStep = 0;
 
+  }
+
+  public void setSynchronizer(Synchronizer synchronizer) {
+    this.synchronizer = synchronizer;
   }
 
   public String getString(int resId) {
@@ -83,7 +106,15 @@ public class SyncExecutionContext implements SynchronizerStatus {
   public String getAppName() {
     return this.appName;
   }
-  
+
+  public String getOdkClientApiVersion() {
+    return this.odkClientApiVersion;
+  }
+
+  public String getAggregateUri() {
+    return this.aggregateUri;
+  }
+
   public CsvUtil getCsvUtil() {
     return this.utils;
   }
@@ -91,9 +122,47 @@ public class SyncExecutionContext implements SynchronizerStatus {
   public Synchronizer getSynchronizer() {
     return synchronizer;
   }
-  
-  public OdkDbHandle getDatabase() throws RemoteException {
-    return Sync.getInstance().getDatabase().openDatabase(appName);
+
+  public AccountManager getAccountManager() {
+    AccountManager accountManager = AccountManager.get(context);
+    return accountManager;
+  }
+
+  public Account getAccount() {
+    PropertiesSingleton props = SyncToolProperties.get(context, getAppName());
+    Account account = new Account(props.getProperty(CommonToolProperties.KEY_ACCOUNT), ACCOUNT_TYPE_G);
+    return account;
+  }
+
+  private int refCount = 1;
+
+  public synchronized OdkDbHandle getDatabase() throws RemoteException {
+    if ( odkDbHandle == null ) {
+      odkDbHandle = Sync.getInstance().getDatabase().openDatabase(appName);
+    }
+    if ( odkDbHandle == null ) {
+      throw new IllegalStateException("Unable to obtain database handle from Core Services!");
+    }
+    ++refCount;
+    return odkDbHandle;
+  }
+
+  public synchronized void releaseDatabase(OdkDbHandle odkDbHandle) throws RemoteException {
+    if ( odkDbHandle != null ) {
+      if ( odkDbHandle != this.odkDbHandle ) {
+        throw new IllegalArgumentException("Expected the internal odkDbHandle!");
+      }
+      --refCount;
+      if ( refCount == 0 ) {
+        try {
+          Sync.getInstance().getDatabase().closeDatabase(appName, odkDbHandle);
+          this.odkDbHandle = null;
+        } catch ( Exception e ) {
+          WebLogger.getLogger(appName).printStackTrace(e);
+        }
+        throw new IllegalStateException("should never get here");
+      }
+    }
   }
 
   public void resetMajorSyncSteps(int nMajorSyncSteps) {

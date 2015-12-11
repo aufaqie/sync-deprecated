@@ -131,10 +131,10 @@ public class AppSynchronizer {
       
       try {
 
-        String authToken = props.getProperty(CommonToolProperties.KEY_AUTH);
+        String accessToken = props.getProperty(CommonToolProperties.KEY_AUTH);
         String serverUri = props.getProperty(CommonToolProperties.KEY_SYNC_SERVER_URL);
         WebLogger.getLogger(appName).i(LOGTAG, "APPNAME IN SERVICE: " + appName);
-        WebLogger.getLogger(appName).i(LOGTAG, "TOKEN IN SERVICE:" + authToken);
+        WebLogger.getLogger(appName).i(LOGTAG, "TOKEN IN SERVICE:" + accessToken);
         WebLogger.getLogger(appName).i(LOGTAG, "URI IN SEVERICE:" + serverUri);
 
         // TODO: should use the APK manager to search for org.opendatakit.N
@@ -153,11 +153,15 @@ public class AppSynchronizer {
         // android.os.Debug.waitForDebugger();
         String odkClientVersion = versionCode.substring(0, versionCode.length() - 2);
 
-        Synchronizer synchronizer = new AggregateSynchronizer(cntxt, appName, odkClientVersion,
-            serverUri, authToken);
-        
         SynchronizationResult syncResult = new SynchronizationResult();
-        SyncExecutionContext sharedContext = new SyncExecutionContext( Sync.getInstance(), appName, synchronizer, syncProgress, syncResult);
+
+        SyncExecutionContext sharedContext = new SyncExecutionContext( Sync.getInstance(),
+            appName, odkClientVersion, serverUri, syncProgress, syncResult);
+
+        Synchronizer synchronizer = new AggregateSynchronizer(sharedContext, accessToken);
+
+        sharedContext.setSynchronizer(synchronizer);
+
         ProcessAppAndTableLevelChanges appAndTableLevelProcessor = new ProcessAppAndTableLevelChanges(sharedContext);
         
         ProcessRowDataChanges rowDataProcessor = new ProcessRowDataChanges(sharedContext);

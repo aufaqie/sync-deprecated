@@ -151,10 +151,8 @@ public class ProcessAppAndTableLevelChanges {
               + e.toString());
       return new ArrayList<TableResource>();
     } finally {
-      if (db != null) {
-        Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
-        db = null;
-      }
+      sc.releaseDatabase(db);
+      db = null;
     }
 
     // Figure out how many major steps there are to the sync
@@ -257,10 +255,8 @@ public class ProcessAppAndTableLevelChanges {
             entry = Sync.getInstance().getDatabase().getTableDefinitionEntry(sc.getAppName(), db, localTableId);
             orderedDefns = Sync.getInstance().getDatabase().getUserDefinedColumns(sc.getAppName(), db, localTableId);
           } finally {
-            if (db != null) {
-              Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
-              db = null;
-            }
+            sc.releaseDatabase(db);
+            db = null;
           }
 
           if (matchingResource != null) {
@@ -357,10 +353,8 @@ public class ProcessAppAndTableLevelChanges {
             exception("synchronizeConfigurationAndContent - database exception", serverTableId, e, tableResult);
             continue;
           } finally {
-            if (db != null) {
-              Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
-              db = null;
-            }
+            sc.releaseDatabase(db);
+            db = null;
           }
         }
 
@@ -384,8 +378,13 @@ public class ProcessAppAndTableLevelChanges {
               successful = true;
             } finally {
               if (db != null) {
-                Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, successful);
-                db = null;
+                try {
+                  Sync.getInstance().getDatabase()
+                      .closeTransaction(sc.getAppName(), sc.getDatabase(), successful);
+                } finally {
+                  sc.releaseDatabase(db);
+                  db = null;
+                }
               }
             }
           } catch (ClientWebException e) {
@@ -443,7 +442,7 @@ public class ProcessAppAndTableLevelChanges {
         } finally {
           if (db != null) {
             try {
-              Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
+              sc.releaseDatabase(db);
               tableResult.setStatus(Status.SUCCESS);
             } finally {
               db = null;
@@ -519,13 +518,8 @@ public class ProcessAppAndTableLevelChanges {
           db, tableId);
       tableResult.setTableDisplayName(displayName);
     } finally {
-      if (db != null) {
-        try {
-          Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
-        } finally {
-          db = null;
-        }
-      }
+      sc.releaseDatabase(db);
+      db = null;
     }
 
     try {
@@ -554,13 +548,8 @@ public class ProcessAppAndTableLevelChanges {
           Sync.getInstance().getDatabase().serverTableSchemaETagChanged(sc.getAppName(), db,
                tableId, tableInstanceFilesUriString);
         } finally {
-          if (db != null) {
-            try {
-              Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
-            } finally {
-              db = null;
-            }
-          }
+          sc.releaseDatabase(db);
+          db = null;
         }
 
         /**************************
@@ -592,13 +581,8 @@ public class ProcessAppAndTableLevelChanges {
           // update schemaETag to that on server (dataETag is null already).
           Sync.getInstance().getDatabase().updateDBTableETags(sc.getAppName(), db, tableId, schemaETag, null);
         } finally {
-          if (db != null) {
-            try {
-              Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
-            } finally {
-              db = null;
-            }
-          }
+          sc.releaseDatabase(db);
+          db = null;
         }
       }
 
@@ -665,8 +649,10 @@ public class ProcessAppAndTableLevelChanges {
         } finally {
           if (db != null) {
             try {
-              Sync.getInstance().getDatabase().closeTransactionAndDatabase(sc.getAppName(), db, successful);
+              Sync.getInstance().getDatabase()
+                  .closeTransaction(sc.getAppName(), sc.getDatabase(), successful);
             } finally {
+              sc.releaseDatabase(db);
               db = null;
             }
           }
@@ -681,13 +667,8 @@ public class ProcessAppAndTableLevelChanges {
         db = sc.getDatabase();
         sc.getCsvUtil().writePropertiesCsv(db, tableId, orderedDefns);
       } finally {
-        if (db != null) {
-          try {
-            Sync.getInstance().getDatabase().closeDatabase(sc.getAppName(), db);
-          } finally {
-            db = null;
-          }
-        }
+        sc.releaseDatabase(db);
+        db = null;
       }
 
       try {

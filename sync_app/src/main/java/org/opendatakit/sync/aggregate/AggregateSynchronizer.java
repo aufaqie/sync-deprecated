@@ -74,10 +74,7 @@ import org.opendatakit.common.android.utilities.WebLogger;
 import org.opendatakit.common.android.utilities.WebLoggerIf;
 import org.opendatakit.common.android.utilities.WebUtils;
 import org.opendatakit.database.service.OdkDbHandle;
-import org.opendatakit.sync.R;
-import org.opendatakit.sync.SyncRow;
-import org.opendatakit.sync.SyncRowPending;
-import org.opendatakit.sync.Synchronizer;
+import org.opendatakit.sync.*;
 import org.opendatakit.sync.application.Sync;
 import org.opendatakit.sync.exceptions.InvalidAuthTokenException;
 import org.opendatakit.sync.logic.SyncToolProperties;
@@ -170,10 +167,7 @@ public class AggregateSynchronizer implements Synchronizer {
     RuntimeDelegate.setInstance(rd);
   }
 
-  private final Context context;
-  private final String appName;
-  private final String odkClientApiVersion;
-  private final String aggregateUri;
+  private SyncExecutionContext sc;
   private String accessToken;
   private final RestClient tokenRt;
   private final RestClient rt;
@@ -247,7 +241,7 @@ public class AggregateSynchronizer implements Synchronizer {
      * Path to the tables servlet (the one that manages table definitions) on
      * the Aggregate server.
      */
-    return "/odktables/" + escapeSegment(appName) + "/tables/";
+    return "/odktables/" + escapeSegment(sc.getAppName()) + "/tables/";
   }
 
   private String getManifestUriFragment() {
@@ -255,8 +249,8 @@ public class AggregateSynchronizer implements Synchronizer {
      * Path to the tables servlet (the one that manages table definitions) on
      * the Aggregate server.
      */
-    return "/odktables/" + escapeSegment(appName) + "/manifest/"
-        + escapeSegment(odkClientApiVersion) + "/";
+    return "/odktables/" + escapeSegment(sc.getAppName()) + "/manifest/"
+        + escapeSegment(sc.getOdkClientApiVersion()) + "/";
   }
 
   /**
@@ -266,8 +260,8 @@ public class AggregateSynchronizer implements Synchronizer {
     * @return
     */
   private String getFilePathURI() {
-    return "/odktables/" + escapeSegment(appName) + "/files/" + escapeSegment(odkClientApiVersion)
-        + "/";
+    return "/odktables/" + escapeSegment(sc.getAppName()) + "/files/"
+        + escapeSegment(sc.getOdkClientApiVersion()) + "/";
   }
   /**
    * Simple Resource for all server interactions.
@@ -356,15 +350,12 @@ public class AggregateSynchronizer implements Synchronizer {
     return rsc;
   }
 
-  public AggregateSynchronizer(Context context, String appName, String odkApiVersion,
-      String aggregateUri, String accessToken) throws InvalidAuthTokenException {
-    this.context = context;
-    this.appName = appName;
-    this.log = WebLogger.getLogger(appName);
-    this.odkClientApiVersion = odkApiVersion;
-    this.aggregateUri = aggregateUri;
-    log.e(LOGTAG, "AggregateUri:" + aggregateUri);
-    this.baseUri = normalizeUri(aggregateUri, "/");
+  public AggregateSynchronizer(SyncExecutionContext sc, String accessToken) throws
+      InvalidAuthTokenException {
+    this.sc = sc;
+    this.log = WebLogger.getLogger(sc.getAppName());
+    log.e(LOGTAG, "AggregateUri:" + sc.getAggregateUri());
+    this.baseUri = normalizeUri(sc.getAggregateUri(), "/");
     log.e(LOGTAG, "baseUri:" + baseUri);
 
     // This is technically not correct, as we should really have a global
@@ -402,17 +393,14 @@ public class AggregateSynchronizer implements Synchronizer {
 
     checkAccessToken(accessToken);
     this.accessToken = accessToken;
-
   }
 
-  private static final String ACCOUNT_TYPE_G = "com.google";
   private final static String authString = "oauth2:https://www.googleapis.com/auth/userinfo.email";
 
   public String updateAccessToken() throws InvalidAuthTokenException {
-    AccountManager accountManager = AccountManager.get(context);
     try {
-      PropertiesSingleton props = SyncToolProperties.get(context, appName);
-      Account account = new Account(props.getProperty(CommonToolProperties.KEY_ACCOUNT), ACCOUNT_TYPE_G);
+      AccountManager accountManager = sc.getAccountManager();
+      Account account = sc.getAccount();
       this.accessToken = accountManager.blockingGetAuthToken(account, authString, true);
       return accessToken;
     } catch (Exception e) {
@@ -462,7 +450,7 @@ public class AggregateSynchronizer implements Synchronizer {
     try {
       String tableFrag = getTablesUriFragment();
       tableFrag = tableFrag.substring(0, tableFrag.length() - 1);
-      URI uri = normalizeUri(aggregateUri, tableFrag);
+      URI uri = normalizeUri(sc.getAggregateUri(), tableFrag);
       if ( webSafeResumeCursor == null ) {
         tableResources = buildResource(uri).get(TableResourceList.class);
       } else {
@@ -488,7 +476,7 @@ public class AggregateSynchronizer implements Synchronizer {
   @Override
   public URI constructTableInstanceFileUri(String tableId, String schemaETag) {
     // e.g., https://msundt-test.appspot.com:443/odktables/tables/tables/Milk_bank/ref/uuid:bb26cdaf-9ccf-4a4f-8e28-c114fe30358a/attachments
-    URI instanceFileUri = normalizeUri(aggregateUri, getTablesUriFragment() + tableId + "/ref/" + schemaETag + "/attachments");
+    URI instanceFileUri = normalizeUri(sc.getAggregateUri(), getTablesUriFragment() + tableId + "/ref/" + schemaETag + "/attachments");
     return instanceFileUri;
   }
   
@@ -497,7 +485,7 @@ public class AggregateSynchronizer implements Synchronizer {
       throws ClientWebException, InvalidAuthTokenException {
 
     // build request
-    URI uri = normalizeUri(aggregateUri, getTablesUriFragment() + tableId);
+    URI uri = normalizeUri(sc.getAggregateUri(), getTablesUriFragment() + tableId);
     TableDefinition definition = new TableDefinition(tableId, schemaETag, columns);
     // create table
     TableResource resource;
@@ -641,7 +629,7 @@ public class AggregateSynchronizer implements Synchronizer {
 
   private List<String> getAppLevelFiles() {
     final Set<String> excludingNamedItemsUnderFolder = ODKFileUtils.getTopLevelDirectoriesToExcludeFromSync();
-    File baseFolder = new File(ODKFileUtils.getAppFolder(appName));
+    File baseFolder = new File(ODKFileUtils.getAppFolder(sc.getAppName()));
 
     // Return an empty list of the folder doesn't exist or is not a directory
     if (!baseFolder.exists()) {
@@ -672,7 +660,7 @@ public class AggregateSynchronizer implements Synchronizer {
       if (partials[i].isDirectory()) {
         unexploredDirs.add(partials[i]);
       } else {
-        relativePaths.add(ODKFileUtils.asRelativePath(appName, partials[i]));
+        relativePaths.add(ODKFileUtils.asRelativePath(sc.getAppName(), partials[i]));
       }
     }
 
@@ -687,7 +675,7 @@ public class AggregateSynchronizer implements Synchronizer {
         if (f.isDirectory()) {
           // ignore the config/tables dir
           if ( !haveFilteredTablesDir ) {
-            File tablesDir = new File(ODKFileUtils.getTablesFolder(appName));
+            File tablesDir = new File(ODKFileUtils.getTablesFolder(sc.getAppName()));
             if ( f.equals(tablesDir) ) {
               haveFilteredTablesDir = true;
               continue;
@@ -695,7 +683,7 @@ public class AggregateSynchronizer implements Synchronizer {
           }
           // ignore the config/assets/csv dir
           if ( !haveFilteredAssetsCsvDir ) {
-            File csvDir = new File(ODKFileUtils.getAssetsCsvFolder(appName));
+            File csvDir = new File(ODKFileUtils.getAssetsCsvFolder(sc.getAppName()));
             if ( f.equals(csvDir) ) {
               haveFilteredAssetsCsvDir = true;
               continue;
@@ -707,14 +695,14 @@ public class AggregateSynchronizer implements Synchronizer {
         } else {
           // ignore the config/assets/tables.init file -- never sync'd to server...
           if ( !haveFilteredTableInitFile ) {
-            File tablesInitFile = new File(ODKFileUtils.getTablesInitializationFile(appName));
+            File tablesInitFile = new File(ODKFileUtils.getTablesInitializationFile(sc.getAppName()));
             if ( f.equals(tablesInitFile) ) {
               haveFilteredTableInitFile = true;
               continue;
             }
           }
           // we'll add it to our list of files.
-          relativePaths.add(ODKFileUtils.asRelativePath(appName, f));
+          relativePaths.add(ODKFileUtils.asRelativePath(sc.getAppName(), f));
         }
       }
     }
@@ -814,7 +802,7 @@ public class AggregateSynchronizer implements Synchronizer {
     // we want the relative path, so drop the necessary bets.
     for (File f : nondirFiles) {
       // +1 to exclude the separator.
-      relativePaths.add(ODKFileUtils.asRelativePath(appName, f));
+      relativePaths.add(ODKFileUtils.asRelativePath(sc.getAppName(), f));
     }
     return relativePaths;
   }
@@ -849,11 +837,11 @@ public class AggregateSynchronizer implements Synchronizer {
       List<String> serverFilesToDelete = new ArrayList<String>();
 
       for (OdkTablesFileManifestEntry entry : manifest) {
-        File localFile = ODKFileUtils.asAppFile(appName, entry.filename);
+        File localFile = ODKFileUtils.asAppFile(sc.getAppName(), entry.filename);
         if (!localFile.exists() || !localFile.isFile()) {
           // we need to delete this file from the server.
           serverFilesToDelete.add(entry.filename);
-        } else if (ODKFileUtils.getMd5Hash(appName, localFile).equals(entry.md5hash)) {
+        } else if (ODKFileUtils.getMd5Hash(sc.getAppName(), localFile).equals(entry.md5hash)) {
           // we are ok -- no need to upload or delete
           relativePathsOnDevice.remove(entry.filename);
         }
@@ -867,7 +855,7 @@ public class AggregateSynchronizer implements Synchronizer {
         syncStatus.updateNotification(SyncProgressState.APP_FILES, R.string.uploading_local_file,
             new Object[] { relativePath }, stepCount * stepSize, false);
 
-        File localFile = ODKFileUtils.asAppFile(appName, relativePath);
+        File localFile = ODKFileUtils.asAppFile(sc.getAppName(), relativePath);
         String wholePathToFile = localFile.getAbsolutePath();
         if (!uploadFile(wholePathToFile, relativePath)) {
           success = false;
@@ -917,7 +905,7 @@ public class AggregateSynchronizer implements Synchronizer {
 
         // and remove any remaining files, as these do not match anything on
         // the server.
-        File f = ODKFileUtils.asAppFile(appName, relativePath);
+        File f = ODKFileUtils.asAppFile(sc.getAppName(), relativePath);
         if (!f.delete()) {
           success = false;
           log.e(LOGTAG, "Unable to delete " + f.getAbsolutePath());
@@ -962,21 +950,21 @@ public class AggregateSynchronizer implements Synchronizer {
       return;
     }
 
-    String tableIdPropertiesFile = ODKFileUtils.asRelativePath(appName, 
-        new File(ODKFileUtils.getTablePropertiesCsvFile(appName, tableId)));
+    String tableIdPropertiesFile = ODKFileUtils.asRelativePath(sc.getAppName(),
+        new File(ODKFileUtils.getTablePropertiesCsvFile(sc.getAppName(), tableId)));
 
     boolean tablePropertiesChanged = false;
 
     // Get any config/assets/csv files that begin with tableId
     Set<String> dirsToExclude = new HashSet<String>();
-    File assetsCsvFolder = new File(ODKFileUtils.getAssetsCsvFolder(appName));
+    File assetsCsvFolder = new File(ODKFileUtils.getAssetsCsvFolder(sc.getAppName()));
     List<String> relativePathsToTableIdAssetsCsvOnDevice = getAllFilesUnderFolder(assetsCsvFolder,
         dirsToExclude);
     relativePathsToTableIdAssetsCsvOnDevice = filterInTableIdFiles(
         relativePathsToTableIdAssetsCsvOnDevice, tableId);
 
     // instance directory is now under the data tree, so we don't have to worry about it...
-    File tableFolder = new File(ODKFileUtils.getTablesFolder(appName, tableId));
+    File tableFolder = new File(ODKFileUtils.getTablesFolder(sc.getAppName(), tableId));
     List<String> relativePathsOnDevice = getAllFilesUnderFolder(tableFolder, dirsToExclude);
 
     // mix in the assets files for this tableId, if any...
@@ -992,11 +980,11 @@ public class AggregateSynchronizer implements Synchronizer {
       List<String> serverFilesToDelete = new ArrayList<String>();
 
       for (OdkTablesFileManifestEntry entry : manifest) {
-        File localFile = ODKFileUtils.asAppFile(appName, entry.filename);
+        File localFile = ODKFileUtils.asAppFile(sc.getAppName(), entry.filename);
         if (!localFile.exists() || !localFile.isFile()) {
           // we need to delete this file from the server.
           serverFilesToDelete.add(entry.filename);
-        } else if (ODKFileUtils.getMd5Hash(appName, localFile).equals(entry.md5hash)) {
+        } else if (ODKFileUtils.getMd5Hash(sc.getAppName(), localFile).equals(entry.md5hash)) {
           // we are ok -- no need to upload or delete
           relativePathsOnDevice.remove(entry.filename);
         }
@@ -1011,7 +999,7 @@ public class AggregateSynchronizer implements Synchronizer {
         syncStatus.updateNotification(SyncProgressState.TABLE_FILES, R.string.uploading_local_file,
             new Object[] { relativePath }, stepCount * stepSize, false);
 
-        File localFile = ODKFileUtils.asAppFile(appName, relativePath);
+        File localFile = ODKFileUtils.asAppFile(sc.getAppName(), relativePath);
         String wholePathToFile = localFile.getAbsolutePath();
         if (!uploadFile(wholePathToFile, relativePath)) {
           success = false;
@@ -1072,7 +1060,7 @@ public class AggregateSynchronizer implements Synchronizer {
 
         // and remove any remaining files, as these do not match anything on
         // the server.
-        File f = ODKFileUtils.asAppFile(appName, relativePath);
+        File f = ODKFileUtils.asAppFile(sc.getAppName(), relativePath);
         if (!f.delete()) {
           success = false;
           log.e(LOGTAG, "Unable to delete " + f.getAbsolutePath());
@@ -1097,10 +1085,10 @@ public class AggregateSynchronizer implements Synchronizer {
   public List<OdkTablesFileManifestEntry> getAppLevelFileManifest(boolean pushLocalFiles, String serverReportedAppLevelETag)
       throws ClientWebException, InvalidAuthTokenException {
 
-    URI fileManifestUri = normalizeUri(aggregateUri, getManifestUriFragment());
+    URI fileManifestUri = normalizeUri(sc.getAggregateUri(), getManifestUriFragment());
     String eTag = null;
     try {
-      eTag = getManifestSyncETag(context, appName, fileManifestUri, null);
+      eTag = getManifestSyncETag(fileManifestUri, null);
     } catch (RemoteException e) {
       log.printStackTrace(e);
       log.e(LOGTAG, "database access error (ignoring)");
@@ -1141,7 +1129,7 @@ public class AggregateSynchronizer implements Synchronizer {
     // update the manifest ETag record...
     eTag = rsp.getHeaders().getFirst(HttpHeaders.ETAG);
     try {
-      updateManifestSyncETag(context, appName, fileManifestUri, null, eTag);
+      updateManifestSyncETag(fileManifestUri, null, eTag);
     } catch (RemoteException e) {
       log.printStackTrace(e);
       log.e(LOGTAG, "database access error (ignoring)");
@@ -1153,10 +1141,10 @@ public class AggregateSynchronizer implements Synchronizer {
   public List<OdkTablesFileManifestEntry> getTableLevelFileManifest(String tableId, String serverReportedTableLevelETag,
       boolean pushLocalFiles) throws ClientWebException, InvalidAuthTokenException {
 
-    URI fileManifestUri = normalizeUri(aggregateUri, getManifestUriFragment() + tableId);
+    URI fileManifestUri = normalizeUri(sc.getAggregateUri(), getManifestUriFragment() + tableId);
     String eTag = null;
     try {
-      eTag = getManifestSyncETag(context, appName, fileManifestUri, tableId);
+      eTag = getManifestSyncETag(fileManifestUri, tableId);
     } catch (RemoteException e) {
       log.printStackTrace(e);
       log.e(LOGTAG, "database access error (ignoring)");
@@ -1197,7 +1185,7 @@ public class AggregateSynchronizer implements Synchronizer {
     // update the manifest ETag record...
     eTag = rsp.getHeaders().getFirst(HttpHeaders.ETAG);
     try {
-      updateManifestSyncETag(context, appName, fileManifestUri, tableId, eTag);
+      updateManifestSyncETag(fileManifestUri, tableId, eTag);
     } catch (RemoteException e) {
       log.printStackTrace(e);
       log.e(LOGTAG, "database access error (ignoring)");
@@ -1208,7 +1196,7 @@ public class AggregateSynchronizer implements Synchronizer {
 
   private boolean deleteFile(String pathRelativeToAppFolder) throws ClientWebException, InvalidAuthTokenException {
     String escapedPath = uriEncodeSegments(pathRelativeToAppFolder);
-    URI filesUri = normalizeUri(aggregateUri, getFilePathURI() + escapedPath);
+    URI filesUri = normalizeUri(sc.getAggregateUri(), getFilePathURI() + escapedPath);
     log.i(LOGTAG, "[deleteFile] fileDeleteUri: " + filesUri.toString());
     buildResource(filesUri).delete();
     // TODO: verify whether or not this worked.
@@ -1218,7 +1206,7 @@ public class AggregateSynchronizer implements Synchronizer {
   private boolean uploadFile(String wholePathToFile, String pathRelativeToAppFolder) throws InvalidAuthTokenException {
     File file = new File(wholePathToFile);
     String escapedPath = uriEncodeSegments(pathRelativeToAppFolder);
-    URI filesUri = normalizeUri(aggregateUri, getFilePathURI() + escapedPath);
+    URI filesUri = normalizeUri(sc.getAggregateUri(), getFilePathURI() + escapedPath);
     log.i(LOGTAG, "[uploadFile] filePostUri: " + filesUri.toString());
     String ct = determineContentType(file.getName());
     MediaType contentType = MediaType.valueOf(ct);
@@ -1252,9 +1240,9 @@ public class AggregateSynchronizer implements Synchronizer {
    * @param pathRelativeToAppFolder
    * @return
    */
-  public URI getFilePostUri(String appName, String pathRelativeToAppFolder) {
+  public URI getFilePostUri(String pathRelativeToAppFolder) {
     String escapedPath = uriEncodeSegments(pathRelativeToAppFolder);
-    URI filesUri = normalizeUri(aggregateUri, getFilePathURI() + escapedPath);
+    URI filesUri = normalizeUri(sc.getAggregateUri(), getFilePathURI() + escapedPath);
     return filesUri;
   }
 
@@ -1264,7 +1252,7 @@ public class AggregateSynchronizer implements Synchronizer {
    * @return
    */
   private boolean compareAndDownloadFile(String tableId, OdkTablesFileManifestEntry entry) {
-    String basePath = ODKFileUtils.getAppFolder(appName);
+    String basePath = ODKFileUtils.getAppFolder(sc.getAppName());
 
     // if the file is a placeholder on the server, then don't do anything...
     if (entry.contentLength == 0) {
@@ -1308,7 +1296,7 @@ public class AggregateSynchronizer implements Synchronizer {
         try {
           int statusCode = downloadFile(newFile, uri);
           if (statusCode == HttpStatus.SC_OK) {
-            updateFileSyncETag(context, appName, uri, tableId, newFile.lastModified(),
+            updateFileSyncETag(uri, tableId, newFile.lastModified(),
                 entry.md5hash);
             return true;
           } else {
@@ -1323,7 +1311,7 @@ public class AggregateSynchronizer implements Synchronizer {
         boolean hasUpToDateEntry = true;
         String md5hash = null;
         try {
-          md5hash = getFileSyncETag(context, appName, uri, tableId, newFile.lastModified());
+          md5hash = getFileSyncETag(uri, tableId, newFile.lastModified());
         } catch (RemoteException e1) {
           log.printStackTrace(e1);
           log.e(LOGTAG, "database access error (ignoring)");
@@ -1332,7 +1320,7 @@ public class AggregateSynchronizer implements Synchronizer {
           // file exists, but no record of what is on the server
           // compute local value
           hasUpToDateEntry = false;
-          md5hash = ODKFileUtils.getMd5Hash(appName, newFile);
+          md5hash = ODKFileUtils.getMd5Hash(sc.getAppName(), newFile);
         }
         // so as it comes down from the manifest, the md5 hash includes a
         // "md5:" prefix. Add that and then check.
@@ -1342,7 +1330,7 @@ public class AggregateSynchronizer implements Synchronizer {
           try {
             int statusCode = downloadFile(newFile, uri);
             if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_NOT_MODIFIED) {
-              updateFileSyncETag(context, appName, uri, tableId, newFile.lastModified(),
+              updateFileSyncETag(uri, tableId, newFile.lastModified(),
                   md5hash);
               return true;
             } else {
@@ -1357,7 +1345,7 @@ public class AggregateSynchronizer implements Synchronizer {
         } else {
           if (!hasUpToDateEntry) {
             try {
-              updateFileSyncETag(context, appName, uri, tableId, newFile.lastModified(), md5hash);
+              updateFileSyncETag(uri, tableId, newFile.lastModified(), md5hash);
             } catch (RemoteException e) {
               log.printStackTrace(e);
               log.e(LOGTAG, "database access error (ignoring)");
@@ -1390,7 +1378,7 @@ public class AggregateSynchronizer implements Synchronizer {
 
       Resource resource = buildFileDownloadResource(downloadUrl);
       if ( destFile.exists() ) {
-        String md5Hash = ODKFileUtils.getMd5Hash(appName, destFile);
+        String md5Hash = ODKFileUtils.getMd5Hash(sc.getAppName(), destFile);
         resource.header(HttpHeaders.IF_NONE_MATCH, md5Hash);
       }
       
@@ -1503,10 +1491,10 @@ public class AggregateSynchronizer implements Synchronizer {
       String tableId, String instanceId, String rowpathUri) {
     
     File localFile = 
-        ODKFileUtils.getRowpathFile(appName, tableId, instanceId, rowpathUri);
+        ODKFileUtils.getRowpathFile(sc.getAppName(), tableId, instanceId, rowpathUri);
 
     // use a cleaned-up rowpathUri in case there are leading slashes, instance paths, etc.
-    String cleanRowpathUri = ODKFileUtils.asRowpathUri(appName, tableId, instanceId, localFile);
+    String cleanRowpathUri = ODKFileUtils.asRowpathUri(sc.getAppName(), tableId, instanceId, localFile);
     
     URI instanceFileDownloadUri = normalizeUri(serverInstanceFileUri, instanceId + "/file/"
         + cleanRowpathUri);
@@ -1543,7 +1531,7 @@ public class AggregateSynchronizer implements Synchronizer {
       String instanceId = serverRow.getRowId();
       
       // 2) Get the folder holding the instance attachments
-      File instanceFolder = new File(ODKFileUtils.getInstanceFolder(appName, tableId, instanceId));
+      File instanceFolder = new File(ODKFileUtils.getInstanceFolder(sc.getAppName(), tableId, instanceId));
 
       // 3) get all the files in that folder...
       List<String> relativePathsToAppFolderOnDevice = getAllFilesUnderFolder(
@@ -1555,7 +1543,7 @@ public class AggregateSynchronizer implements Synchronizer {
         CommonFileAttachmentTerms cat = computeCommonFileAttachmentTerms(serverInstanceFileUri, 
             tableId, instanceId, rowpathUri);
 
-        String appFolderRelativePath = ODKFileUtils.asRelativePath(appName, cat.localFile);
+        String appFolderRelativePath = ODKFileUtils.asRelativePath(sc.getAppName(), cat.localFile);
         // remove it from the local files list
         relativePathsToAppFolderOnDevice.remove(appFolderRelativePath);
 
@@ -1567,8 +1555,8 @@ public class AggregateSynchronizer implements Synchronizer {
 
           int statusCode = downloadFile(cat.localFile, cat.instanceFileDownloadUri);
           if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_NOT_MODIFIED) { 
-            String md5Hash = ODKFileUtils.getMd5Hash(appName, cat.localFile);
-            updateFileSyncETag(context, appName, cat.instanceFileDownloadUri, tableId,
+            String md5Hash = ODKFileUtils.getMd5Hash(sc.getAppName(), cat.localFile);
+            updateFileSyncETag(cat.instanceFileDownloadUri, tableId,
                 cat.localFile.lastModified(), md5Hash);
           } else {
             success = false;
@@ -1578,11 +1566,11 @@ public class AggregateSynchronizer implements Synchronizer {
           // content on the server.
           // this could be inaccurate if there are buggy programs on the
           // device!
-          String md5hash = getFileSyncETag(context, appName, cat.instanceFileDownloadUri,
+          String md5hash = getFileSyncETag(cat.instanceFileDownloadUri,
               tableId, cat.localFile.lastModified());
           if (md5hash == null) {
-            md5hash = ODKFileUtils.getMd5Hash(appName, cat.localFile);
-            updateFileSyncETag(context, appName, cat.instanceFileDownloadUri, tableId,
+            md5hash = ODKFileUtils.getMd5Hash(sc.getAppName(), cat.localFile);
+            updateFileSyncETag(cat.instanceFileDownloadUri, tableId,
                 cat.localFile.lastModified(), md5hash);
           }
         }
@@ -1594,7 +1582,7 @@ public class AggregateSynchronizer implements Synchronizer {
       if (serverRow.shouldDeleteExtraneousLocalFiles()) {
         for (String relativePath : relativePathsToAppFolderOnDevice) {
           // remove local files that are not on server...
-          File localFile = ODKFileUtils.asAppFile(appName, relativePath);
+          File localFile = ODKFileUtils.asAppFile(sc.getAppName(), relativePath);
           if (!localFile.delete()) {
             success = false;
           }
@@ -1618,54 +1606,51 @@ public class AggregateSynchronizer implements Synchronizer {
      */
   }
 
-  private String getFileSyncETag(Context context, String appName, URI fileDownloadUri, String tableId, long lastModified) throws RemoteException {
+  private String getFileSyncETag(URI
+      fileDownloadUri, String tableId, long lastModified) throws RemoteException {
     OdkDbHandle db = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(appName);
-      return Sync.getInstance().getDatabase().getFileSyncETag(appName, db, fileDownloadUri.toString(), tableId,
+      db = sc.getDatabase();
+      return Sync.getInstance().getDatabase().getFileSyncETag(sc.getAppName(), db, fileDownloadUri.toString(), tableId,
           lastModified);
     } finally {
-      if ( db != null ) {
-        Sync.getInstance().getDatabase().closeDatabase(appName, db);
-      }
+      sc.releaseDatabase(db);
+      db = null;
     }
   }
 
-  private void updateFileSyncETag(Context context, String appName, URI fileDownloadUri, String tableId, long lastModified, String documentETag) throws RemoteException {
+  private void updateFileSyncETag(URI fileDownloadUri, String tableId, long lastModified, String documentETag) throws RemoteException {
     OdkDbHandle db = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(appName);
-      Sync.getInstance().getDatabase().updateFileSyncETag(appName, db, fileDownloadUri.toString(), tableId,
+      db = sc.getDatabase();
+      Sync.getInstance().getDatabase().updateFileSyncETag(sc.getAppName(), db, fileDownloadUri.toString(), tableId,
           lastModified, documentETag);
     } finally {
-      if ( db != null ) {
-        Sync.getInstance().getDatabase().closeDatabase(appName, db);
-      }
+      sc.releaseDatabase(db);
+      db = null;
     }
   }
 
-  private String getManifestSyncETag(Context context, String appName, URI fileDownloadUri, String tableId) throws RemoteException {
+  private String getManifestSyncETag(URI fileDownloadUri, String tableId) throws RemoteException {
     OdkDbHandle db = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(appName);
-      return Sync.getInstance().getDatabase().getManifestSyncETag(appName, db, fileDownloadUri.toString(), tableId);
+      db = sc.getDatabase();
+      return Sync.getInstance().getDatabase().getManifestSyncETag(sc.getAppName(), db, fileDownloadUri.toString(), tableId);
     } finally {
-      if ( db != null ) {
-        Sync.getInstance().getDatabase().closeDatabase(appName, db);
-      }
+      sc.releaseDatabase(db);
+      db = null;
     }
   }
 
-  private void updateManifestSyncETag(Context context, String appName, URI fileDownloadUri, String tableId, String documentETag) throws RemoteException {
+  private void updateManifestSyncETag(URI fileDownloadUri, String tableId, String documentETag) throws RemoteException {
     OdkDbHandle db = null;
     try {
-      db = Sync.getInstance().getDatabase().openDatabase(appName);
-      Sync.getInstance().getDatabase().updateManifestSyncETag(appName, db, fileDownloadUri.toString(), tableId,
+      db = sc.getDatabase();
+      Sync.getInstance().getDatabase().updateManifestSyncETag(sc.getAppName(), db, fileDownloadUri.toString(), tableId,
           documentETag);
     } finally {
-      if ( db != null ) {
-        Sync.getInstance().getDatabase().closeDatabase(appName, db);
-      }
+      sc.releaseDatabase(db);
+      db = null;
     }
   }
     

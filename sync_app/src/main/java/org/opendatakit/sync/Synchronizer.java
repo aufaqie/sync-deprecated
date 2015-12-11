@@ -145,7 +145,7 @@ public interface Synchronizer {
    * 
    * @param tableResource
    *          the TableResource from the server for a tableId
-   * @param rowsToInsertOrUpdate
+   * @param rowsToInsertUpdateOrDelete
    * @return
    * @throws ClientWebException
    * @throws InvalidAuthTokenException 
@@ -162,7 +162,7 @@ public interface Synchronizer {
    * @param pushLocalFiles true if local files should be pushed. Otherwise they are only pulled
    *        down.
    * @param serverReportedAppLevelETag may be null. The server's app-level manifest ETag if known.
-   * @param SynchronizerStatus
+   * @param syncStatus
    *          for reporting detailed progress of app-level file sync
    * @return true if successful
    * @throws ClientWebException
