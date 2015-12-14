@@ -546,7 +546,7 @@ public class ProcessAppAndTableLevelChanges {
 
           db = sc.getDatabase();
           Sync.getInstance().getDatabase().serverTableSchemaETagChanged(sc.getAppName(), db,
-               tableId, tableInstanceFilesUriString);
+               tableId, null, tableInstanceFilesUriString);
         } finally {
           sc.releaseDatabase(db);
           db = null;
@@ -771,16 +771,24 @@ public class ProcessAppAndTableLevelChanges {
       TableDefinitionEntry te = Sync.getInstance().getDatabase().getTableDefinitionEntry(
           sc.getAppName(), db,
           definitionResource.getTableId());
+
       String schemaETag = te.getSchemaETag();
       if (schemaETag == null || !schemaETag.equals(definitionResource.getSchemaETag())) {
         // server has changed its schema
-        // change row sync and conflict status to handle new server schema.
-        // Clean up this table and set the dataETag to null.
-        Sync.getInstance().getDatabase().changeDataRowsToNewRowState(sc.getAppName(), db, definitionResource.getTableId());
-        // and update to the new schemaETag, but clear our dataETag
-        // so that all data rows sync.
-        Sync.getInstance().getDatabase().updateDBTableETags(sc.getAppName(), db, definitionResource.getTableId(),
-            definitionResource.getSchemaETag(), null);
+
+        // construct old URI prefix to instance content
+        String oldTableInstanceFilesUriString = null;
+        if ( schemaETag != null) {
+          URI oldTableInstanceFilesUri = sc.getSynchronizer().constructTableInstanceFileUri(
+              definitionResource.getTableId(),
+              schemaETag);
+          oldTableInstanceFilesUriString = oldTableInstanceFilesUri.toString();
+        }
+
+        // and update the schema, removing the old URI string
+        Sync.getInstance().getDatabase().serverTableSchemaETagChanged(sc.getAppName(),
+            db, definitionResource.getTableId(), definitionResource.getSchemaETag(),
+            oldTableInstanceFilesUriString);
       }
       return localColumnDefns;
     }
