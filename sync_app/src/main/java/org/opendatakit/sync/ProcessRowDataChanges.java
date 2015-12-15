@@ -951,12 +951,10 @@ public class ProcessRowDataChanges {
               tableResult.incLocalAttachmentRetries();
               ++count;
               ++rowsProcessed;
-              if (rowsProcessed % ROWS_BETWEEN_PROGRESS_UPDATES == 0) {
-                sc.updateNotification(SyncProgressState.ROWS,
-                    R.string.uploading_attachments_server_row, new Object[] { tableId, count,
-                        rowsToPushFileAttachments.size() }, 10.0 + rowsProcessed * perRowIncrement,
-                    false);
-              }
+              sc.updateNotification(SyncProgressState.ROWS,
+                  R.string.uploading_attachments_server_row, new Object[] { tableId, count,
+                      rowsToPushFileAttachments.size() }, 10.0 + rowsProcessed * perRowIncrement,
+                  false);
             }
             attachmentSyncSuccessful = !attachmentSyncFailed;
           } catch (ClientWebException e) {
@@ -1127,11 +1125,9 @@ public class ProcessRowDataChanges {
 
         ++countSoFar;
         ++rowsProcessed;
-        if (rowsProcessed % ROWS_BETWEEN_PROGRESS_UPDATES == 0) {
-          sc.updateNotification(SyncProgressState.ROWS, R.string.altering_server_row, new Object[] {
-              resource.getTableId(), countSoFar, totalOutcomesSize }, 10.0 + rowsProcessed
-              * perRowIncrement, false);
-        }
+        sc.updateNotification(SyncProgressState.ROWS, R.string.altering_server_row, new Object[] {
+            resource.getTableId(), countSoFar, totalOutcomesSize }, 10.0 + rowsProcessed
+            * perRowIncrement, false);
       }
 
       // process the conflict rows, if any
@@ -1268,11 +1264,9 @@ public class ProcessRowDataChanges {
       }
       ++count;
       ++rowsProcessed;
-      if (rowsProcessed % ROWS_BETWEEN_PROGRESS_UPDATES == 0) {
-        sc.updateNotification(SyncProgressState.ROWS, R.string.marking_conflicting_local_row,
-            new Object[] { resource.getTableId(), count, changes.size() }, 10.0 + rowsProcessed
-                * perRowIncrement, false);
-      }
+      sc.updateNotification(SyncProgressState.ROWS, R.string.marking_conflicting_local_row,
+          new Object[] { resource.getTableId(), count, changes.size() }, 10.0 + rowsProcessed
+              * perRowIncrement, false);
     }
   }
 
@@ -1324,11 +1318,9 @@ public class ProcessRowDataChanges {
       }
       ++count;
       ++rowsProcessed;
-      if (rowsProcessed % ROWS_BETWEEN_PROGRESS_UPDATES == 0) {
-        sc.updateNotification(SyncProgressState.ROWS, R.string.inserting_local_row, new Object[] {
-            resource.getTableId(), count, changes.size() }, 10.0 + rowsProcessed * perRowIncrement,
-            false);
-      }
+      sc.updateNotification(SyncProgressState.ROWS, R.string.inserting_local_row, new Object[] {
+          resource.getTableId(), count, changes.size() }, 10.0 + rowsProcessed * perRowIncrement,
+          false);
     }
   }
 
@@ -1394,11 +1386,9 @@ public class ProcessRowDataChanges {
 
       ++count;
       ++rowsProcessed;
-      if (rowsProcessed % ROWS_BETWEEN_PROGRESS_UPDATES == 0) {
-        sc.updateNotification(SyncProgressState.ROWS, R.string.updating_local_row, new Object[] {
-            resource.getTableId(), count, changes.size() }, 10.0 + rowsProcessed * perRowIncrement,
-            false);
-      }
+      sc.updateNotification(SyncProgressState.ROWS, R.string.updating_local_row, new Object[] {
+          resource.getTableId(), count, changes.size() }, 10.0 + rowsProcessed * perRowIncrement,
+          false);
     }
   }
 
@@ -1491,11 +1481,9 @@ public class ProcessRowDataChanges {
       }
       ++count;
       ++rowsProcessed;
-      if (rowsProcessed % ROWS_BETWEEN_PROGRESS_UPDATES == 0) {
-        sc.updateNotification(SyncProgressState.ROWS, R.string.deleting_local_row, new Object[] {
-            resource.getTableId(), count, changes.size() }, 10.0 + rowsProcessed * perRowIncrement,
-            false);
-      }
+      sc.updateNotification(SyncProgressState.ROWS, R.string.deleting_local_row, new Object[] {
+          resource.getTableId(), count, changes.size() }, 10.0 + rowsProcessed * perRowIncrement,
+          false);
     }
   }
 }
