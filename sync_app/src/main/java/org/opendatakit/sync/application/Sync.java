@@ -15,6 +15,8 @@
 package org.opendatakit.sync.application;
 
 import org.opendatakit.common.android.application.CommonApplication;
+import org.opendatakit.common.android.logic.CommonToolProperties;
+import org.opendatakit.common.android.logic.PropertiesSingleton;
 import org.opendatakit.sync.OdkSyncServiceProxy;
 import org.opendatakit.sync.R;
 
@@ -59,6 +61,11 @@ public class Sync extends CommonApplication {
 
   @Override
   public void onCreate() {
+    if (singleton == null) {
+      PropertiesSingleton props = CommonToolProperties
+          .get(this.getBaseContext(), this.getToolName());
+      props.setStartCoreServices(this.getBaseContext());
+    }
     singleton = this;
     super.onCreate();
   }
