@@ -1485,7 +1485,7 @@ public class AggregateSynchronizer implements Synchronizer {
           }
           response.consumeContent();
         }
-      } catch (ClientWebException e) {
+      } catch (Exception e) {
         log.printStackTrace(e);
         if ( response != null ) {
           response.consumeContent();
