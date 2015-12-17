@@ -91,8 +91,7 @@ public class TableResult {
    * then only be updated in the case of success or exceptions. The boolean
    * flags are initialized to false;
    * 
-   * @param dbTableName
-   * @param status
+   * @param tableId
    */
   public TableResult(String tableId) {
     this.mTableId = tableId;
@@ -233,6 +232,10 @@ public class TableResult {
           + " to something other than exception when it had alread been set" + " to exception.");
     }
     this.mStatus = newStatus;
+  }
+
+  public void resetStatus() {
+    this.mStatus = Status.WORKING;
   }
 
 }
