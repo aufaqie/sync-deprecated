@@ -677,7 +677,7 @@ public class ProcessAppAndTableLevelChanges {
               @Override
               public void onTablePropertiesChanged(String tableId) {
                 try {
-                  sc.getCsvUtil().updateTablePropertiesFromCsv(null, tableId);
+                  sc.getCsvUtil().updateTablePropertiesFromCsv(tableId);
                 } catch (IOException e) {
                   log.printStackTrace(e);
                   String msg = e.getMessage();
