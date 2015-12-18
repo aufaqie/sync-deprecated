@@ -192,6 +192,7 @@ public class AppSynchronizer {
           status = SyncStatus.NETWORK_ERROR;
         }
 
+        int attachmentsFailed = 0;
         for (TableResult result : syncResult.getTableResults()) {
           org.opendatakit.sync.SynchronizationResult.Status tableStatus = result.getStatus();
           // TODO: decide how to handle the status
@@ -224,8 +225,9 @@ public class AppSynchronizer {
 
         // success
         if (status != SyncStatus.CONFLICT_RESOLUTION) {
-          status = SyncStatus.SYNC_COMPLETE;
-          syncProgress.clearNotification();
+          status = (attachmentsFailed > 0) ? SyncStatus.SYNC_COMPLETE_PENDING_ATTACHMENTS :
+              SyncStatus.SYNC_COMPLETE;
+          syncProgress.clearNotification(attachmentsFailed);
         } else {
           syncProgress.finalErrorNotification("Conflicts exist.  Please resolve.");
         }

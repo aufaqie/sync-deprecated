@@ -911,12 +911,12 @@ public class ProcessRowDataChanges {
 
         // Our update may not have been successful. Only push files if it was...
         if (rowDataSyncSuccessful) {
-          try {
-            attachmentSyncSuccessful = (rowsToPushFileAttachments.isEmpty());
-            // And try to push the file attachments...
-            int count = 0;
-            boolean attachmentSyncFailed = false;
-            for (SyncRowPending syncRowPending : rowsToPushFileAttachments) {
+          attachmentSyncSuccessful = (rowsToPushFileAttachments.isEmpty());
+          // And try to push the file attachments...
+          int count = 0;
+          boolean attachmentSyncFailed = false;
+          for (SyncRowPending syncRowPending : rowsToPushFileAttachments) {
+            try {
               boolean outcome = true;
               if (!syncRowPending.onlyGetFiles()) {
                 outcome = sc.getSynchronizer().putFileAttachments(
@@ -948,28 +948,33 @@ public class ProcessRowDataChanges {
                   }
                 }
               }
-              tableResult.incLocalAttachmentRetries();
-              ++count;
-              ++rowsProcessed;
-              sc.updateNotification(SyncProgressState.ROWS,
-                  R.string.uploading_attachments_server_row, new Object[] { tableId, count,
-                      rowsToPushFileAttachments.size() }, 10.0 + rowsProcessed * perRowIncrement,
-                  false);
-            }
-            attachmentSyncSuccessful = !attachmentSyncFailed;
-          } catch (ClientWebException e) {
-            if (e.getResponse() != null
-                && e.getResponse().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-              clientAuthException("synchronizeTable - auth error synchronizing attachments", tableId, e, tableResult);
-              log.e(TAG, "[synchronizeTableRest] auth failure synchronizing attachments " + e.toString());
-            } else {
-              clientWebException("synchronizeTableRest", tableId, e, tableResult);
+            } catch (ClientWebException e) {
+              if (e.getResponse() != null
+                  && e.getResponse().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+                clientAuthException("synchronizeTable - auth error synchronizing attachments",
+                    tableId, e, tableResult);
+                log.e(TAG, "[synchronizeTableRest] auth failure synchronizing attachments " + e
+                    .toString());
+              } else {
+                clientWebException("synchronizeTableRest", tableId, e, tableResult);
+                log.e(TAG,
+                    "[synchronizeTableRest] error synchronizing attachments " + e.toString());
+              }
+              attachmentSyncFailed = true;
+            } catch (Exception e) {
+              exception("synchronizeTableRest", tableId, e, tableResult);
               log.e(TAG, "[synchronizeTableRest] error synchronizing attachments " + e.toString());
+              attachmentSyncFailed = true;
             }
-          } catch (Exception e) {
-            exception("synchronizeTableRest", tableId, e, tableResult);
-            log.e(TAG, "[synchronizeTableRest] error synchronizing attachments " + e.toString());
+
+            tableResult.incLocalAttachmentRetries();
+            ++count;
+            ++rowsProcessed;
+            sc.updateNotification(SyncProgressState.ROWS, R.string.uploading_attachments_server_row,
+                new Object[] { tableId, count, rowsToPushFileAttachments.size() },
+                10.0 + rowsProcessed * perRowIncrement, false);
           }
+          attachmentSyncSuccessful = !attachmentSyncFailed;
         }
         
         if ( rowDataSyncSuccessful && attachmentSyncSuccessful ) {
