@@ -200,6 +200,7 @@ public class AppSynchronizer {
             if (tableStatus == Status.AUTH_EXCEPTION) {
               authProblems = true;
             } else if (tableStatus == Status.TABLE_PENDING_ATTACHMENTS) {
+              ++attachmentsFailed;
               continue;
             } else if (tableStatus == Status.TABLE_CONTAINS_CHECKPOINTS
                 || tableStatus == Status.TABLE_CONTAINS_CONFLICTS
