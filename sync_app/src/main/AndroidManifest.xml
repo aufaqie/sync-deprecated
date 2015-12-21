@@ -31,7 +31,6 @@
         android:icon="@drawable/odk_sync"
         android:label="@string/app_name"
         android:theme="@style/Opendatakit" >
-        <service android:name="org.opendatakit.sync.service.OdkSyncService" />
 
         <activity
             android:name="org.opendatakit.sync.activities.SyncActivity"
