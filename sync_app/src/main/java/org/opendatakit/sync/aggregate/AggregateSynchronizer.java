@@ -67,22 +67,17 @@ import org.opendatakit.aggregate.odktables.rest.entity.TableDefinition;
 import org.opendatakit.aggregate.odktables.rest.entity.TableDefinitionResource;
 import org.opendatakit.aggregate.odktables.rest.entity.TableResource;
 import org.opendatakit.aggregate.odktables.rest.entity.TableResourceList;
-import org.opendatakit.common.android.logic.CommonToolProperties;
-import org.opendatakit.common.android.logic.PropertiesSingleton;
 import org.opendatakit.common.android.utilities.ODKFileUtils;
 import org.opendatakit.common.android.utilities.WebLogger;
 import org.opendatakit.common.android.utilities.WebLoggerIf;
-import org.opendatakit.common.android.utilities.WebUtils;
 import org.opendatakit.database.service.OdkDbHandle;
 import org.opendatakit.sync.*;
 import org.opendatakit.sync.application.Sync;
 import org.opendatakit.sync.exceptions.InvalidAuthTokenException;
-import org.opendatakit.sync.logic.SyncToolProperties;
 import org.opendatakit.sync.service.SyncProgressState;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
-import android.content.Context;
 import android.os.RemoteException;
 
 /**
@@ -96,7 +91,8 @@ public class AggregateSynchronizer implements Synchronizer {
 
   private static final String LOGTAG = AggregateSynchronizer.class.getSimpleName();
   private static final String TOKEN_INFO = "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=";
-  
+  public static final int CONNECTION_TIMEOUT = 45000;
+
   // parameters for queries that could return a lot of data...
   public static final String CURSOR_PARAMETER = "cursor";
   public static final String FETCH_LIMIT = "fetchLimit";
@@ -374,8 +370,8 @@ public class AggregateSynchronizer implements Synchronizer {
     cc.setLoadWinkApplications(false);
     cc.applications(new ODKClientApplication());
     cc.handlers(new GzipHandler(), new ReAuthSecurityHandler(this));
-    cc.connectTimeout(WebUtils.CONNECTION_TIMEOUT);
-    cc.readTimeout(2 * WebUtils.CONNECTION_TIMEOUT);
+    cc.connectTimeout(CONNECTION_TIMEOUT);
+    cc.readTimeout(2 * CONNECTION_TIMEOUT);
     cc.followRedirects(true);
 
     this.rt = new RestClient(cc);
@@ -383,8 +379,8 @@ public class AggregateSynchronizer implements Synchronizer {
     cc = new ClientConfig();
     cc.setLoadWinkApplications(false);
     cc.applications(new ODKClientApplication());
-    cc.connectTimeout(WebUtils.CONNECTION_TIMEOUT);
-    cc.readTimeout(2 * WebUtils.CONNECTION_TIMEOUT);
+    cc.connectTimeout(CONNECTION_TIMEOUT);
+    cc.readTimeout(2 * CONNECTION_TIMEOUT);
     cc.followRedirects(true);
 
     this.tokenRt = new RestClient(cc);
