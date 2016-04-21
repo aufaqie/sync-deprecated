@@ -1,8 +1,9 @@
 # opendatakit.sync
 
-This project is __*actively maintained*__
+This project is __*archival*__
 
-It is part of the ODK 2.0 Android tools suite. User documentation for each ODK 2.0 release is [under here](https://opendatakit.org/use/2_0_tools/)
+It is part of the ODK 2.0 Android tools suite prior to rev 200. 
+User documentation for each ODK 2.0 release is [under here](https://opendatakit.org/use/2_0_tools/)
 
 The Google group for user questions is: [opendatakit@](https://groups.google.com/forum/#!forum/opendatakit)
 
